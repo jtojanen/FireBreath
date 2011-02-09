@@ -38,7 +38,7 @@ FB::variant FB::JSFunction::exec( const std::vector<variant>& args )
     if (!api)
         throw new FB::script_error("Invalid JSAPI object");
     // Force calls to use the zone this function was created with
-    FB::scoped_zonelock(api, getZone());
+    FB::scoped_zonelock _l(api, getZone());
     return api->Invoke(m_methodName, args);
 }
 
@@ -59,3 +59,4 @@ FB::variant FB::JSFunction::Invoke( const std::string& methodName, const std::ve
         return FB::JSAPIAuto::Invoke(methodName, args);
     }
 }
+

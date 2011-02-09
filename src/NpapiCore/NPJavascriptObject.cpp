@@ -69,7 +69,7 @@ bool NPJavascriptObject::HasMethod(NPIdentifier name)
 {
     try {
         std::string mName = m_browser->StringFromIdentifier(name);
-
+        if (mName == "toString") return true;
         return !getAPI()->HasMethodObject(mName) && getAPI()->HasMethod(mName);
     } catch (const std::bad_cast&) {
         return false; // invalid object
@@ -255,18 +255,22 @@ bool NPJavascriptObject::Enumeration(NPIdentifier **value, uint32_t *count)
         typedef std::vector<std::string> StringArray;
         StringArray memberList;
         getAPI()->getMemberNames(memberList);
-        *count = memberList.size();
+        *count = memberList.size() + 2;
         NPIdentifier *outList(NULL);
         outList = (NPIdentifier*)m_browser->MemAlloc((uint32_t)(sizeof(NPIdentifier) * *count));
         
         for (uint32_t i = 0; i < memberList.size(); i++) {
             outList[i] = m_browser->GetStringIdentifier(memberList.at(i).c_str());
         }
+        outList[memberList.size()] = m_browser->GetStringIdentifier("addEventListener");
+        outList[memberList.size() + 1] = m_browser->GetStringIdentifier("removeEventListener");
         *value = outList;
         return true;
     } catch (const std::bad_cast&) {
+        *count = 0;
         return false; // invalid object
     } catch (const script_error& e) {
+        *count = 0;
         m_browser->SetException(this, e.what());
         return false;
     }
@@ -378,4 +382,5 @@ NPClass NPJavascriptObject::NPJavascriptObjectClass = {
     NPJavascriptObject::_Enumeration,
     NPJavascriptObject::_Construct
 };
+
 

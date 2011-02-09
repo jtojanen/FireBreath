@@ -119,15 +119,15 @@ namespace FB
         /// @fn virtual void FactoryBase::globalPluginInitialize()
         /// @brief  Global plugin initialization
         /// 
-        /// This function will be called when the active plugin count goes from 0 to 1.  There is no 
-        /// guarantee that it will only be called once in the lifetime of a plugin module, however it will
-        /// never be called again until after globalPluginDeinitialize() is called.
+        /// As of FireBreath 1.4 this will be called exactly once right after the module is loaded
+        /// and globalPluginDeinitialize will be called exactly once before the module is unloaded
+        /// on all browsers.
         /// 
         /// @code
-        ///      void globalPluginInitialize()
-        ///      {
-        ///          MyPluginObject::StaticInitialize();
-        ///      }
+        /// void globalPluginInitialize()
+        /// {
+        ///     MyPluginObject::StaticInitialize();
+        /// }
         /// @endcode
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void                        globalPluginInitialize();
@@ -136,16 +136,15 @@ namespace FB
         /// @fn virtual void FactoryBase::globalPluginDeinitialize()
         /// @brief  Global plugin deinitialization
         ///
-        /// This function will be called when the last plugin is destroyed, taking the active plugin count
-        /// from 1 to 0.  There is no guarantee that it will only be called once in the lifetime of a plugin
-        /// module because another plugin could be created after this is destroyed and before the module
-        /// is unloaded.  However it will not be called again until after globalPluginInitialize() is called.
+        /// As of FireBreath 1.4 this will be called exactly once right before the module is unloaded
+        /// and globalPluginInitialize will be called exactly once right after the module is loaded
+        /// on all browsers.
         /// 
         /// @code
-        ///      void globalPluginDeinitialize()
-        ///      {
-        ///          MyPluginObject::StaticDeinitialize();
-        ///      }
+        /// void globalPluginDeinitialize()
+        /// {
+        ///     MyPluginObject::StaticDeinitialize();
+        /// }
         /// @endcode
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void                        globalPluginDeinitialize();
@@ -207,7 +206,7 @@ namespace FB
 
 #ifdef FB_WIN
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowWin* FactoryBase::createPluginWindowWin(const WindowContextWin&)
+        /// @fn virtual PluginWindowWin* FactoryBase::createPluginWindowWin(const WindowContextWin& ctx)
         ///
         /// @brief  Creates a PluginWindowWin derived plugin window object
         ///
@@ -215,10 +214,10 @@ namespace FB
         ///
         /// @return A PluginWindowWin* to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowWin*            createPluginWindowWin(const WindowContextWin&);
+        virtual PluginWindowWin*            createPluginWindowWin(const WindowContextWin& ctx);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowlessWin* FactoryBase::createPluginWindowless(const WindowContextWin&)
+        /// @fn virtual PluginWindowlessWin* FactoryBase::createPluginWindowless(const WindowContextWindowless& ctx)
         ///
         /// @brief  Creates a PluginWindowlessWin derived plugin window object
         ///
@@ -226,7 +225,7 @@ namespace FB
         ///
         /// @return A PluginWindowlessWin* to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowlessWin*        createPluginWindowless(const WindowContextWindowless&);
+        virtual PluginWindowlessWin*        createPluginWindowless(const WindowContextWindowless& ctx);
 
         virtual IDispatchEx*                createCOMJSObject(FB::BrowserHostPtr host, FB::JSAPIWeakPtr api);
         virtual HRESULT                     UpdateWindowsRegistry( bool install );
@@ -234,7 +233,7 @@ namespace FB
       
 #ifdef FB_MACOSX
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw&);
+        /// @fn virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw& ctx);
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / QuickDraw
         ///
@@ -242,9 +241,9 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw&);
+        virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw& ctx);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowMacCarbonCG* createPluginWindowCarbonQD(const WindowContextCoreGraphics&);
+        /// @fn virtual PluginWindowMacCarbonCG* createPluginWindowCarbonQD(const WindowContextCoreGraphics& ctx);
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / CoreGraphics
         ///
@@ -252,7 +251,7 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowMacCarbonCG* createPluginWindowCarbonCG(const WindowContextCoreGraphics&);
+        virtual PluginWindowMacCarbonCG* createPluginWindowCarbonCG(const WindowContextCoreGraphics& ctx);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual PluginWindowMacCocoaCG* createPluginWindowCocoaCG();
         ///
@@ -274,8 +273,6 @@ namespace FB
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / QuickDraw
         ///
-        /// @param  Platform specific data structure for window context information
-        ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual PluginWindowMacCocoaICA* createPluginWindowCocoaICA();
@@ -283,7 +280,7 @@ namespace FB
         
 #ifdef FB_X11
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11&)
+        /// @fn virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11& ctx)
         ///
         /// @brief  Creates a PluginWindowX11 derived plugin window object for X11
         ///
@@ -291,9 +288,10 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11&); 
+        virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11& ctx); 
 #endif
     };
 }
 
 #endif
+

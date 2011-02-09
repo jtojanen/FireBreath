@@ -18,6 +18,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #include "NpapiTypes.h"
 #include "BrowserHost.h"
+#include "SafeQueue.h"
 #include <boost/thread.hpp>
 
 namespace FB { namespace Npapi {
@@ -41,13 +42,15 @@ namespace FB { namespace Npapi {
         void setBrowserFuncs(NPNetscapeFuncs *pFuncs);
 
     public:
-        virtual BrowserStreamPtr createStream(const std::string& url, const PluginEventSinkPtr& callback, 
+        virtual BrowserStreamPtr _createStream(const std::string& url, const PluginEventSinkPtr& callback, 
                                             bool cache = true, bool seekable = false, 
                                             size_t internalBufferSize = 128 * 1024 ) const;
 
     public:
         virtual bool _scheduleAsyncCall(void (*func)(void *), void *userData) const;
         virtual void *getContextID() const { return (void *)m_npp; }
+        virtual void deferred_release(NPObject* obj);
+        virtual void DoDeferredRelease() const;
 
     public:
         FB::DOM::DocumentPtr getDOMDocument();
@@ -68,6 +71,7 @@ namespace FB { namespace Npapi {
         NPObjectAPIPtr m_htmlDoc;
         NPObjectAPIPtr m_htmlWin;
         NPObjectAPIPtr m_htmlElement;
+        mutable FB::SafeQueue<NPObject*> m_deferredObjects;
 
     public:
         void* MemAlloc(uint32_t size) const;
@@ -100,6 +104,7 @@ namespace FB { namespace Npapi {
         NPError GetValue(NPNVariable variable, void *value) const;
         NPError SetValue(NPPVariable variable, void *value) const;
         void InvalidateRect(NPRect *invalidRect) const;
+        void InvalidateRect2(const NPRect& invalidRect) const;
         void InvalidateRegion(NPRegion invalidRegion) const;
         void ForceRedraw() const;
         void PushPopupsEnabledState(NPBool enabled) const;
@@ -137,3 +142,4 @@ namespace FB { namespace Npapi {
 }; };
 
 #endif
+

@@ -20,6 +20,7 @@ Copyright 2009 PacketPass Inc, Georg Fritzsche,
 #include "BrowserHost.h"
 #include <boost/weak_ptr.hpp>
 #include <boost/optional.hpp>
+#include "SimpleStreamHelper.h"
 
 FB_FORWARD_PTR(ThreadRunnerAPI);
 FB_FORWARD_PTR(SimpleMathAPI);
@@ -51,7 +52,7 @@ public:
     bool asBool(const FB::variant& a);
     long asInt(const FB::variant& a);
     double asDouble(const FB::variant& a);
-    const boost::optional<std::string> optionalTest(const boost::optional<std::string>& str);
+    const boost::optional<std::string> optionalTest(const std::string& test1, const boost::optional<std::string>& str);
 
     std::string listArray(const std::vector<std::string>&);
     FB::VariantList reverseArray(const std::vector<std::string>& arr);
@@ -77,6 +78,9 @@ public:
     
     void eval(std::string str);
     long addWithSimpleMath(const boost::shared_ptr<SimpleMathAPI>& jso, long a, long b);
+    void getURL(const std::string& url, const FB::JSObjectPtr& callback);
+    void getURLCallback(const FB::JSObjectPtr& callback, bool success, const FB::HeaderMap& headers,
+        const boost::shared_array<uint8_t>& data, const size_t size);
 
 private:
     FB::BrowserHostPtr m_host;
@@ -85,3 +89,4 @@ private:
 
     std::string m_testString;
 };
+

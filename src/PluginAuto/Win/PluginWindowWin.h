@@ -68,11 +68,16 @@ namespace FB {
         HWND getBrowserHWND() { return m_browserhWnd; }
         void setCallOldWinProc(bool callOld) { m_callOldWinProc = callOld; }
 
+        virtual FB::Rect getWindowPosition() const;
+        virtual FB::Rect getWindowClipping() const;
+        virtual uint32_t getWindowWidth() const;
+        virtual uint32_t getWindowHeight() const;
+
         typedef std::map<void*,PluginWindowWin*> PluginWindowMap;
 
         // Windowed plugins get OS events directly through their window
         boost::int16_t HandleEvent(NPEvent* evt) { return 0; }
-        virtual void InvalidateWindow();
+        virtual void InvalidateWindow() const;
 
     protected:
         static PluginWindowMap m_windowMap;
@@ -93,3 +98,4 @@ namespace FB {
 };
 
 #endif // H_PLUGINWINDOWWIN
+

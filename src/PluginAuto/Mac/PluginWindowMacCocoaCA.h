@@ -31,7 +31,7 @@ namespace FB {
 
     public:
         void clearWindow();
-        void InvalidateWindow();
+        void InvalidateWindow() const;
         void setLayer(void* layer);
         void* getLayer() const;
 
@@ -41,3 +41,4 @@ namespace FB {
     };
 };
 #endif // H_PLUGINWINDOWMAC_COCOA_CA
+

@@ -18,6 +18,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "DOM/Document.h"
 #include "DOM/Window.h"
 #include "AsyncFunctionCall.h"
+#include "Win/WinMessageWindow.h"
 #include "AXDOM/Window.h"
 #include "AXDOM/Document.h"
 #include "AXDOM/Element.h"
@@ -81,7 +82,7 @@ namespace
 }
 
 ActiveXBrowserHost::ActiveXBrowserHost(IWebBrowser2 *doc, IOleClientSite* site)
-    : m_spClientSite(site), m_webBrowser(doc)
+    : m_spClientSite(site), m_webBrowser(doc), m_messageWin(new FB::WinMessageWindow())
 {
     if (m_webBrowser) {
         m_webBrowser->get_Document(&m_htmlDocDisp);
@@ -97,9 +98,10 @@ ActiveXBrowserHost::~ActiveXBrowserHost(void)
 
 bool ActiveXBrowserHost::_scheduleAsyncCall(void (*func)(void *), void *userData) const
 {
-    if (!isShutDown() && m_hWnd != NULL) {
+    boost::shared_lock<boost::shared_mutex> _l(m_xtmutex);
+    if (!isShutDown() && m_messageWin) {
         FBLOG_TRACE("ActiveXHost", "Scheduling async call for main thread");
-        return ::PostMessage(m_hWnd, WM_ASYNCTHREADINVOKE, NULL, 
+        return ::PostMessage(m_messageWin->getHWND(), WM_ASYNCTHREADINVOKE, NULL, 
             (LPARAM)new FB::AsyncFunctionCall(func, userData)) ? true : false;
     } else {
         return false;
@@ -109,11 +111,6 @@ bool ActiveXBrowserHost::_scheduleAsyncCall(void (*func)(void *), void *userData
 void *ActiveXBrowserHost::getContextID() const
 {
     return (void*)this;
-}
-
-void ActiveXBrowserHost::setWindow(HWND wnd)
-{
-    m_hWnd = wnd;
 }
 
 FB::DOM::WindowPtr ActiveXBrowserHost::_createWindow(const FB::JSObjectPtr& obj) const
@@ -185,7 +182,17 @@ void ActiveXBrowserHost::evaluateJavaScript(const std::string &script)
 
 void ActiveXBrowserHost::shutdown()
 {
+    // First, make sure that no async calls are made while we're shutting down
+    boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
+    // Next, kill the message window so that none that have been made go through
+    m_messageWin.reset();
+
+    // Finally, run the main browser shutdown, which will fire off any cross-thread
+    // calls that somehow haven't made it through yet
 	BrowserHost::shutdown();
+
+    // Once that's done let's release any ActiveX resources that the browserhost
+    // is holding
 	m_spClientSite.Release();
 	m_htmlDoc.Release();
 	m_htmlDocDisp.Release();
@@ -194,6 +201,8 @@ void ActiveXBrowserHost::shutdown()
 	m_htmlWinDisp.Release();
 	m_window.reset();
 	m_document.reset();
+    DoDeferredRelease();
+    assert(m_deferredObjects.empty());
 }
 
 FB::variant ActiveXBrowserHost::getVariant(const VARIANT *cVar)
@@ -285,9 +294,10 @@ void ActiveXBrowserHost::getComVariant(VARIANT *dest, const FB::variant &var)
     outVar.Detach(dest);
 }
 
-FB::BrowserStreamPtr ActiveXBrowserHost::createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+FB::BrowserStreamPtr ActiveXBrowserHost::_createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
                                     bool cache, bool seekable, size_t internalBufferSize ) const
 {
+    assertMainThread();
     ActiveXStreamPtr stream(boost::make_shared<ActiveXStream>(url, cache, seekable, internalBufferSize));
     stream->AttachObserver( callback );
 
@@ -303,3 +313,19 @@ FB::BrowserStreamPtr ActiveXBrowserHost::createStream(const std::string& url, co
     }
     return stream;
 }
+
+void ActiveXBrowserHost::DoDeferredRelease() const
+{
+    assertMainThread();
+    IDispatch* deferred;
+    while (m_deferredObjects.try_pop(deferred)) {
+        deferred->Release();
+    }
+}
+
+
+void FB::ActiveX::ActiveXBrowserHost::deferred_release( IDispatch* m_obj ) const
+{
+    m_deferredObjects.push(m_obj);
+}
+

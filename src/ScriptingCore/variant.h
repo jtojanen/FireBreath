@@ -41,6 +41,7 @@
 #include <boost/variant/static_visitor.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/preprocessor/tuple/to_seq.hpp>
+#include <boost/logic/tribool.hpp>
 
 #include "APITypes.h"
 #include "Util/meta_util.h"
@@ -507,7 +508,7 @@ namespace FB
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn template<typename T> const T& variant::cast() const
+        /// @fn template<typename T> T& variant::cast() const
         ///
         /// @brief  returns the value cast as the given type; throws bad_variant_type if that type is
         ///         not the type of the value stored in variant
@@ -516,6 +517,19 @@ namespace FB
         ///
         /// @return value of type T
         ////////////////////////////////////////////////////////////////////////////////////////////////////
+        template<typename T>
+        T& cast() {
+            if (get_type() != typeid(T)) {
+                throw bad_variant_cast(get_type(), typeid(T));
+            }
+            if (sizeof(T) <= sizeof(void*)) {
+                return *reinterpret_cast<T*>(&object);
+            }
+            else {
+                return *reinterpret_cast<T*>(object);
+            }
+        }
+
         template<typename T>
         const T& cast() const {
             if (get_type() != typeid(T)) {
@@ -696,6 +710,9 @@ namespace FB
                     return variant();
             }
 
+            variant make_variant(const boost::tribool& val);
+            boost::tribool convert_variant( const FB::variant& var, const type_spec<boost::tribool>& );
+
             template <class T>
             typename boost::enable_if<
                 boost::mpl::and_<
@@ -847,3 +864,4 @@ namespace FB
 #undef FB_CONVERT_ENTRY_COMPLEX_END
 
 #endif // CDIGGINS_ANY_HPP
+

@@ -13,10 +13,6 @@
 #\**********************************************************/
 
 get_filename_component (GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
-configure_file(PluginConfig.cmake ${CMAKE_CURRENT_BINARY_DIR}/PluginConfig.cmake COPYONLY)
-
-include(${CMAKE_DIR}/PluginConfigDefaults.cmake)
-include(PluginConfig.cmake)
 
 get_filename_component(TEMPLATE_DIR "${FB_ROOT_DIR}/gen_templates" ABSOLUTE)
 get_filename_component(TEMPLATE_DEST_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen" ABSOLUTE)
@@ -42,7 +38,7 @@ include_directories(
     )
 
 # set up the mimetype strings
-string(REPLACE ";" "\\|" FBMIMETYPE_LIST ${FBSTRING_MIMEType})
+string(REPLACE ";" "|" FBMIMETYPE_LIST "${FBSTRING_MIMEType}")
 
 # configure default generated files
 file(GLOB TEMPLATELIST ${TEMPLATE_DIR}/[^.]*)
@@ -78,12 +74,11 @@ endforeach()
 # Repititions in the following are intentional to fix linking errors due to
 # cyclic references on Linux. Don't change without testing on Linux!
 set(PLUGIN_INTERNAL_DEPS
-    ${Boost_LIBRARIES}
     PluginCore
     ${PLUGIN_PREFIX}_PluginAuto
     NpapiCore
-    PluginCore
     ScriptingCore
+    PluginCore
     ${Boost_LIBRARIES}
     ${FBLIB_LIBRARIES}
     )

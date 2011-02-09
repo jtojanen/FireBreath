@@ -59,7 +59,7 @@ bool DefaultBrowserStreamHandler::onStreamCompleted(FB::StreamCompletedEvent *ev
      return false;
 }
 
-FB::BrowserStreamPtr DefaultBrowserStreamHandler::getStream() const
+const FB::BrowserStreamPtr& DefaultBrowserStreamHandler::getStream() const
 {
      return stream;
 }
@@ -78,3 +78,4 @@ void DefaultBrowserStreamHandler::clearStream()
 {
     stream.reset();
 }
+

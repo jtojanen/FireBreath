@@ -15,7 +15,6 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #include "win_common.h"
 #include "NpapiTypes.h"
 #include "PluginCore.h"
-#include "PluginInfo.h"
 #include "FactoryBase.h"
 #include "Win/NpapiPluginWin.h"
 #include "Win/PluginWindowWin.h"
@@ -45,6 +44,16 @@ NpapiPluginWin::~NpapiPluginWin()
     delete pluginWin; pluginWin = NULL;
 }
 
+void NpapiPluginWin::invalidateWindow( uint32_t left, uint32_t top, uint32_t right, uint32_t bottom )
+{
+    NPRect r = { top, left, bottom, right };
+    if (!m_npHost->isMainThread()) {
+        m_npHost->ScheduleOnMainThread(m_npHost, boost::bind(&NpapiBrowserHost::InvalidateRect2, m_npHost, r));
+    } else {
+        m_npHost->InvalidateRect(&r);
+    }
+}
+
 NPError NpapiPluginWin::SetWindow(NPWindow* window)
 {
     // If window == NULL then our window is gone. Stop drawing.
@@ -57,10 +66,13 @@ NPError NpapiPluginWin::SetWindow(NPWindow* window)
         }
         return NPERR_NO_ERROR;
     }
+    if (!pluginGuiEnabled())
+        return NPERR_NO_ERROR;
 
     // Code here diverges depending on if 
     // the plugin is windowed or windowless.
-    if(pluginGuiEnabled() && pluginMain->isWindowless()) { 
+    if(pluginMain->isWindowless()) { 
+        assert(window->type == NPWindowTypeDrawable);
         PluginWindowlessWin* win = dynamic_cast<PluginWindowlessWin*>(pluginWin);
 
         if(win == NULL && pluginWin != NULL) {
@@ -73,11 +85,14 @@ NPError NpapiPluginWin::SetWindow(NPWindow* window)
 
         if(pluginWin == NULL) {
             // Create new window
-            win = getFactoryInstance()->createPluginWindowless(FB::WindowContextWindowless((HDC)window->window));
-            win->setNpHost(m_npHost);
+            win = getFactoryInstance()->createPluginWindowless(FB::WindowContextWindowless(NULL));
+            HWND browserHWND;
+            m_npHost->GetValue(NPNVnetscapeWindow, (void*)&browserHWND); 
+            win->setHWND(browserHWND);
             win->setWindowPosition(window->x, window->y, window->width, window->height);
             win->setWindowClipping(window->clipRect.top, window->clipRect.left,
                                    window->clipRect.bottom, window->clipRect.right);
+            win->setInvalidateWindowFunc(boost::bind(&NpapiPluginWin::invalidateWindow, this, _1, _2, _3, _4));
             pluginMain->SetWindow(win);
             setReady();
             pluginWin = win;
@@ -87,6 +102,7 @@ NPError NpapiPluginWin::SetWindow(NPWindow* window)
                                    window->clipRect.bottom, window->clipRect.right);
         }
     } else { 
+        assert(window->type == NPWindowTypeWindow);
         PluginWindowWin* win = dynamic_cast<PluginWindowWin*>(pluginWin);
         // Check to see if we've received a new HWND (new window)
         if(win != NULL && win->getHWND() != (HWND)window->window) {
@@ -101,6 +117,8 @@ NPError NpapiPluginWin::SetWindow(NPWindow* window)
         }
     
         if(pluginWin == NULL) {
+            // Sanity check
+            assert(::IsWindow((HWND)window->window));
             // Create new window
             HWND browserHWND;
             m_npHost->GetValue(NPNVnetscapeWindow, (void*)&browserHWND); 
@@ -117,8 +135,13 @@ NPError NpapiPluginWin::SetWindow(NPWindow* window)
 
 int16_t NpapiPluginWin::HandleEvent(void* event) {
     PluginWindowlessWin* win = dynamic_cast<PluginWindowlessWin*>(pluginWin);
+    NPEvent* evt(reinterpret_cast<NPEvent*>(event));
     if(win != NULL) {
-        return win->HandleEvent((NPEvent*)event);
+        LRESULT lRes(0);
+        if (win->HandleEvent(evt->event, evt->wParam, evt->lParam, lRes)) {
+            return boost::numeric_cast<int16_t>(lRes);
+        }
     }
     return false;
 }
+

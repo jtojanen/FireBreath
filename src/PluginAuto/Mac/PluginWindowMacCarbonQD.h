@@ -16,37 +16,24 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #define H_PLUGINWINDOWMAC_CARBON_QD
 
 #include <Carbon/Carbon.h>
-#include "PluginWindow.h"
+#include "PluginWindowMacCarbon.h"
 #include "WindowContextMac.h"
 
 #include <map>
 
 namespace FB 
 {    
-    class PluginWindowMacCarbonQD : public PluginWindow
+    class PluginWindowMacCarbonQD : public PluginWindowMacCarbon
     {
     public:
         PluginWindowMacCarbonQD(const WindowContextQuickDraw&);
         virtual ~PluginWindowMacCarbonQD();
 
         int16_t HandleEvent(EventRecord* evt);
-        void setWindowPosition(int x, int y, int w, int h);
-        void getWindowPosition(int &x, int &y, int &w, int &h);
-        void setWindowClipping(int t, int l, int b, int r);
-        void getWindowClipping(int &t, int &l, int &b, int &r);
-        void InvalidateWindow() {}
-        CGrafPtr getPort() { return m_port; }
+        CGrafPtr getPort() const { return m_port; }
     protected:
         CGrafPtr m_port;
-        int m_x;
-        int m_y;
-        int m_width;
-        int m_height;
-        
-        int m_clipLeft;
-        int m_clipRight;
-        int m_clipTop;
-        int m_clipBottom;
     };
 };
 #endif // H_PLUGINWINDOWMAC_CARBON_QD
+

@@ -154,6 +154,24 @@ FB::DOM::ElementPtr FB::Npapi::NpapiBrowserHost::getDOMElement()
 
     return FB::DOM::Element::create(m_htmlElement);
 }
+
+void FB::Npapi::NpapiBrowserHost::deferred_release( NPObject* obj )
+{
+    m_deferredObjects.push(obj);
+    if (isMainThread()) {
+        DoDeferredRelease();
+    }
+}
+
+void FB::Npapi::NpapiBrowserHost::DoDeferredRelease() const
+{
+    assertMainThread();
+    NPObject* cur(NULL);
+    while (m_deferredObjects.try_pop(cur)) {
+        ReleaseObject(cur);
+    }
+}
+
 void NpapiBrowserHost::evaluateJavaScript(const std::string &script) 
 {
     assertMainThread();
@@ -428,6 +446,12 @@ NPError NpapiBrowserHost::SetValue(NPPVariable variable, void *value) const
     }
 }
 
+void NpapiBrowserHost::InvalidateRect2(const NPRect& invalidRect) const
+{
+    NPRect rect = invalidRect;
+    return InvalidateRect(&rect);
+}
+
 void NpapiBrowserHost::InvalidateRect(NPRect *invalidRect) const
 {
     assertMainThread();
@@ -617,10 +641,9 @@ void NpapiBrowserHost::UnscheduleTimer(int timerId)  const
     }
 }
 
-FB::BrowserStreamPtr NpapiBrowserHost::createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+FB::BrowserStreamPtr NpapiBrowserHost::_createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
                                     bool cache, bool seekable, size_t internalBufferSize ) const
 {
-    assertMainThread();
     NpapiStreamPtr stream( boost::make_shared<NpapiStream>( url, cache, seekable, internalBufferSize, FB::ptr_cast<const NpapiBrowserHost>(shared_from_this()) ) );
     stream->AttachObserver( callback );
 
@@ -637,3 +660,4 @@ FB::BrowserStreamPtr NpapiBrowserHost::createStream(const std::string& url, cons
     }
     return stream;
 }
+

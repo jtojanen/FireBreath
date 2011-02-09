@@ -10,18 +10,23 @@
 #include <sstream>
 #include "FBTestPluginAPI.h"
 
+#ifdef FB_WIN
+#include "PluginWindowWin.h"
+#include "PluginWindowlessWin.h"
+#endif
+
 #include "FBTestPlugin.h"
 
 void FBTestPlugin::StaticInitialize()
 {
-    // Place one-time initialization stuff here; note that there isn't an absolute guarantee that
-    // this will only execute once per process, just a guarantee that it won't execute again until
-    // after StaticDeinitialize is called
+    // Place one-time initialization stuff here; As of FireBreath 1.4 this should only
+    // be called once per process
 }
 
 void FBTestPlugin::StaticDeinitialize()
 {
-    // Place one-time deinitialization stuff here
+    // Place one-time deinitialization stuff here. This should be called just before
+    // the plugin library is unloaded
 }
 
 
@@ -46,6 +51,8 @@ FB::JSAPIPtr FBTestPlugin::createJSAPI()
 
 bool FBTestPlugin::onMouseDown(FB::MouseDownEvent *evt, FB::PluginWindow*)
 {
+    // These are just examples; if you don't need them, remove them, as htmlLog
+    // does have a performance penalty!
     std::ostringstream oStr;
     oStr << "Mouse down at: " << evt->m_x << ", " << evt->m_y;
     this->m_host->htmlLog(oStr.str());
@@ -54,6 +61,8 @@ bool FBTestPlugin::onMouseDown(FB::MouseDownEvent *evt, FB::PluginWindow*)
 
 bool FBTestPlugin::onMouseUp(FB::MouseUpEvent *evt, FB::PluginWindow*)
 {
+    // These are just examples; if you don't need them, remove them, as htmlLog
+    // does have a performance penalty!
     std::ostringstream oStr;
     oStr << "Mouse up at: " << evt->m_x << ", " << evt->m_y;
     this->m_host->htmlLog(oStr.str());
@@ -62,6 +71,8 @@ bool FBTestPlugin::onMouseUp(FB::MouseUpEvent *evt, FB::PluginWindow*)
 
 bool FBTestPlugin::onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow*)
 {
+    // These are just examples; if you don't need them, remove them, as htmlLog
+    // does have a performance penalty!
     std::ostringstream oStr;
     oStr << "Mouse move at: " << evt->m_x << ", " << evt->m_y;
     this->m_host->htmlLog(oStr.str());
@@ -70,10 +81,49 @@ bool FBTestPlugin::onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow*)
 
 bool FBTestPlugin::onAttached( FB::AttachedEvent *evt, FB::PluginWindow* )
 {
+    // This is called when the window is attached; don't start drawing before this!
     return false;
 }
 
 bool FBTestPlugin::onDetached( FB::DetachedEvent *evt, FB::PluginWindow* )
 {
+    // This is called when the window is detached! You must not draw after this!
     return false;
 }
+
+bool FBTestPlugin::draw( FB::RefreshEvent *evt, FB::PluginWindow* win )
+{
+    FB::Rect pos = win->getWindowPosition();
+#if FB_WIN
+    HDC hDC;
+    FB::PluginWindowlessWin *wndLess = dynamic_cast<FB::PluginWindowlessWin*>(win);
+    FB::PluginWindowWin *wnd = dynamic_cast<FB::PluginWindowWin*>(win);
+    PAINTSTRUCT ps;
+    if (wndLess) {
+        hDC = wndLess->getHDC();
+    } else if (wnd) {
+        hDC = BeginPaint(wnd->getHWND(), &ps);
+        pos.right -= pos.left;
+        pos.left = 0;
+        pos.bottom -= pos.top;
+        pos.top = 0;
+    }
+
+	::SetTextAlign(hDC, TA_CENTER|TA_BASELINE);
+	LPCTSTR pszText = _T("FireBreath Plugin!");
+	::TextOut(hDC, pos.left + (pos.right - pos.left) / 2, pos.top + (pos.bottom - pos.top) / 2, pszText, lstrlen(pszText));
+
+    if (wnd) {
+        // Release the device context
+        EndPaint(wnd->getHWND(), &ps);
+    }
+#endif
+    return true;
+}
+
+bool FBTestPlugin::isWindowless()
+{
+    return PluginCore::isWindowless();
+    //return true;
+}
+

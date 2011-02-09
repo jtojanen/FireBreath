@@ -78,6 +78,7 @@ bool PluginWindowWin::WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
     switch(uMsg) {
         case WM_LBUTTONDOWN: 
         {
+            SetFocus( m_hWnd ); //get key focus when the mouse is clicked on our plugin
             MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, 
                               GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return SendEvent(&ev);
@@ -114,7 +115,6 @@ bool PluginWindowWin::WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
         }
         case WM_MOUSEMOVE:
         {
-            SetFocus( m_hWnd ); //get key focus, as the mouse is over our region
             MouseMoveEvent ev(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return SendEvent(&ev);
         }
@@ -181,7 +181,37 @@ LRESULT CALLBACK PluginWindowWin::_WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, 
     return 0;
 }
 
-void PluginWindowWin::InvalidateWindow()
+void PluginWindowWin::InvalidateWindow() const
 {
     InvalidateRect(m_hWnd, NULL, true);
 }
+
+FB::Rect FB::PluginWindowWin::getWindowPosition() const
+{
+    RECT rect;
+    ::GetWindowRect(m_hWnd, &rect);
+    FB::Rect out = {
+        boost::numeric_cast<int32_t>(rect.top),
+        boost::numeric_cast<int32_t>(rect.left),
+        boost::numeric_cast<int32_t>(rect.bottom),
+        boost::numeric_cast<int32_t>(rect.right)};
+    return out;
+}
+
+FB::Rect FB::PluginWindowWin::getWindowClipping() const
+{
+    return getWindowPosition();
+}
+
+uint32_t FB::PluginWindowWin::getWindowWidth() const
+{
+    FB::Rect pos = getWindowPosition();
+    return pos.right - pos.left;
+}
+
+uint32_t FB::PluginWindowWin::getWindowHeight() const
+{
+    FB::Rect pos = getWindowPosition();
+    return pos.bottom - pos.top;
+}
+

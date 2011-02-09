@@ -32,36 +32,37 @@ namespace FB {
         virtual ~PluginWindowMacCarbon();
         
         virtual int16_t HandleEvent(EventRecord* evt) { return 0; }
-        virtual void InvalidateWindow() {/* TODO */}
+        virtual void InvalidateWindow() const;
         virtual void clearWindow();
 
         // Accessors 
-        NPRect getWindowPosition();
-        NPRect getWindowClipping();
-        int getWindowHeight();
-        int getWindowWidth();
+		FB::Rect getWindowPosition() const;
+		FB::Rect getWindowClipping() const;
+        uint32_t getWindowHeight() const;
+        uint32_t getWindowWidth() const;
 
         void setWindowPosition(int32_t x, int32_t y, uint32_t width, uint32_t height);
-        void setWindowClipping(uint16_t top, uint16_t left, uint16_t bottom, uint16_t right);
+        void setWindowClipping(uint32_t top, uint32_t left, uint32_t bottom, uint32_t right);
 
         // Set this window's browser host
         void setNpHost(FB::Npapi::NpapiBrowserHostPtr host) { m_npHost = host; }
 
     protected:
-        int m_x;
-        int m_y;
-        int m_width;
-        int m_height;
+        int32_t m_x;
+        int32_t m_y;
+        uint32_t m_width;
+        uint32_t m_height;
         
-        int m_clipLeft;
-        int m_clipRight;
-        int m_clipTop;
-        int m_clipBottom;
+        int32_t m_clipLeft;
+        int32_t m_clipRight;
+        int32_t m_clipTop;
+        int32_t m_clipBottom;
 
-        int m_old_x, m_old_y; // Keep track of mouse movement coordinates
+        int32_t m_old_x, m_old_y; // Keep track of mouse movement coordinates
 
         Npapi::NpapiBrowserHostPtr m_npHost;
     };
 };
 
 #endif // H_PLUGINWINDOWMAC_CARBON
+

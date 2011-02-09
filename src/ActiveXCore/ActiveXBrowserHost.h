@@ -22,8 +22,10 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "BrowserHost.h"
 #include "APITypes.h"
 #include "FBPointers.h"
+#include "SafeQueue.h"
 
 namespace FB {
+    class WinMessageWindow;
     namespace ActiveX {
         FB_FORWARD_PTR(ActiveXBrowserHost);
         FB_FORWARD_PTR(IDispatchAPI);
@@ -43,11 +45,9 @@ namespace FB {
 
             virtual void *getContextID() const;
 
-            virtual FB::BrowserStreamPtr createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+            virtual FB::BrowserStreamPtr _createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
                                                     bool cache = true, bool seekable = false, 
                                                     size_t internalBufferSize = 128 * 1024 ) const;
-
-            void setWindow(HWND wnd);
 
         public:
             FB::DOM::DocumentPtr getDOMDocument();
@@ -64,7 +64,6 @@ namespace FB {
 
         protected:
             void initDOMObjects(); // This is const so that getDOMDocument/Window can be
-            HWND m_hWnd;
         	CComQIPtr<IOleClientSite> m_spClientSite;
             CComQIPtr<IHTMLDocument2> m_htmlDoc;
             CComQIPtr<IDispatch> m_htmlDocDisp;
@@ -73,12 +72,20 @@ namespace FB {
             CComQIPtr<IDispatch> m_htmlWinDisp;
             mutable FB::DOM::WindowPtr m_window;
             mutable FB::DOM::DocumentPtr m_document;
+            boost::scoped_ptr<FB::WinMessageWindow> m_messageWin;
+
+        private:
+            mutable boost::shared_mutex m_xtmutex;
+            mutable FB::SafeQueue<IDispatch*> m_deferredObjects;
 
         public:
             FB::variant getVariant(const VARIANT *cVar);
             void getComVariant(VARIANT *dest, const FB::variant &var);
+            void deferred_release( IDispatch* m_obj ) const;
+            void DoDeferredRelease() const;
         };
     }
 }
 
 #endif // H_ACTIVEXBROWSERHOST
+

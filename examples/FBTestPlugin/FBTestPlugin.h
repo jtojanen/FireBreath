@@ -28,9 +28,10 @@ public:
 
 public:
     virtual FB::JSAPIPtr createJSAPI();
-    virtual bool IsWindowless() { return false; }
     
     std::string getPluginPath() { return m_filesystemPath; }
+
+    bool isWindowless();
 
     BEGIN_PLUGIN_EVENT_MAP()
         EVENTTYPE_CASE(FB::MouseDownEvent, onMouseDown, FB::PluginWindow)
@@ -38,6 +39,7 @@ public:
         EVENTTYPE_CASE(FB::MouseMoveEvent, onMouseMove, FB::PluginWindow)
         EVENTTYPE_CASE(FB::AttachedEvent, onAttached, FB::PluginWindow)
         EVENTTYPE_CASE(FB::DetachedEvent, onDetached, FB::PluginWindow)
+        EVENTTYPE_CASE(FB::RefreshEvent, draw, FB::PluginWindow)
     END_PLUGIN_EVENT_MAP()
 
     /** BEGIN EVENTDEF -- DON'T CHANGE THIS LINE **/
@@ -46,7 +48,9 @@ public:
     virtual bool onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow*);
     virtual bool onAttached(FB::AttachedEvent *evt, FB::PluginWindow*);
     virtual bool onDetached(FB::DetachedEvent *evt, FB::PluginWindow*);
+    virtual bool draw(FB::RefreshEvent *evt, FB::PluginWindow*);
     /** END EVENTDEF -- DON'T CHANGE THIS LINE **/
 };
 
 #endif
+

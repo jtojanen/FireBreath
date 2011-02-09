@@ -25,12 +25,17 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #include "BrowserHost.h"
 #include <boost/smart_ptr/enable_shared_from_this.hpp>
+#include "../PluginCore/BrowserStreamManager.h"
 
 void FB::BrowserHost::htmlLog(const std::string& str)
 {
     FBLOG_INFO("BrowserHost", "Logging to HTML: " << str);
-    this->ScheduleAsyncCall(&FB::BrowserHost::AsyncHtmlLog,
-        new FB::AsyncLogRequest(shared_from_this(), str));
+    try {
+        this->ScheduleAsyncCall(&FB::BrowserHost::AsyncHtmlLog,
+            new FB::AsyncLogRequest(shared_from_this(), str));
+    } catch (const std::exception&) {
+        // This fails during shutdown; ignore it
+    }
 }
 
 void FB::BrowserHost::AsyncHtmlLog(void *logReq)
@@ -115,7 +120,7 @@ namespace FB {
 
 FB::BrowserHost::BrowserHost()
     : _asyncManager(boost::make_shared<AsyncCallManager>()), m_threadId(boost::this_thread::get_id()),
-      m_isShutDown(false)
+      m_isShutDown(false), m_streamMgr(boost::make_shared<FB::BrowserStreamManager>())
 {
 
 }
@@ -126,6 +131,7 @@ void FB::BrowserHost::shutdown()
     boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
     m_isShutDown = true;
     _asyncManager->shutdown();
+    m_streamMgr.reset();
 }
 
 void FB::BrowserHost::assertMainThread() const
@@ -145,21 +151,26 @@ bool FB::BrowserHost::isMainThread() const
 
 void FB::BrowserHost::freeRetainedObjects() const
 {
-    boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
+    boost::recursive_mutex::scoped_lock _l(m_jsapimutex);
     // This releases all stored shared_ptr objects that the browser is holding
     m_retainedObjects.clear();
+
+    // This allows the browserhost to release any browser objects that were held by the retained
+    // objects
+    DoDeferredRelease();
 }
 
 void FB::BrowserHost::retainJSAPIPtr( const FB::JSAPIPtr& obj ) const
 {
-    boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
+    boost::recursive_mutex::scoped_lock _l(m_jsapimutex);
     m_retainedObjects.insert(obj);
 }
 
 void FB::BrowserHost::releaseJSAPIPtr( const FB::JSAPIPtr& obj ) const
 {
-    boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
+    boost::recursive_mutex::scoped_lock _l(m_jsapimutex);
     m_retainedObjects.erase(m_retainedObjects.find(obj));
+    DoDeferredRelease();
 }
 
 void FB::_asyncCallData::call()
@@ -219,3 +230,16 @@ bool FB::BrowserHost::ScheduleAsyncCall( void (*func)(void *), void *userData ) 
         return _scheduleAsyncCall(&asyncCallWrapper, data);
     }
 }
+
+FB::BrowserStreamPtr FB::BrowserHost::createStream( const std::string& url,
+    const PluginEventSinkPtr& callback, bool cache /*= true*/, bool seekable /*= false*/,
+    size_t internalBufferSize /*= 128 * 1024 */ ) const
+{
+    assertMainThread();
+    FB::BrowserStreamPtr ptr(_createStream(url, callback, cache, seekable, internalBufferSize));
+    if (ptr) {
+        m_streamMgr->retainStream(ptr);
+    }
+    return ptr;
+}
+

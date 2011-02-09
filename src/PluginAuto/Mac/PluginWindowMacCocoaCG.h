@@ -35,14 +35,10 @@ namespace FB {
             void setContext(CGContextRef context);
             CGContextRef getContext() { return m_context; }
 
-            void setWindowPosition(int32_t x, int32_t y, uint32_t width, uint32_t height);
-            void setWindowClipping(uint16_t top, uint16_t left, uint16_t bottom, uint16_t right);
-            NPRect getWindowPosition();
-            NPRect getWindowClipping();
-
         protected:
             CGContextRef m_context;
     };
 };
 
 #endif // H_PLUGINWINDOWMAC_COCOA_CG
+

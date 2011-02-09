@@ -23,6 +23,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/variant/variant_fwd.hpp>
+#include "fb_stdint.h"
 #include "FBPointers.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -340,6 +341,13 @@ namespace FB
         typedef boost::variant<long, int, double, float, std::string, FB::FBNull, FB::FBVoid> primitives;
         typedef boost::variant<std::string, FB::StringSet> strings;
     }
+
+    struct Rect {
+        int32_t top;
+        int32_t left;
+        int32_t bottom;
+        int32_t right;
+    };
 }
 
 // This needs to be included after all our classes are defined because it relies on types defined in this file
@@ -347,3 +355,4 @@ namespace FB
 #include "variant.h"
 
 #endif
+

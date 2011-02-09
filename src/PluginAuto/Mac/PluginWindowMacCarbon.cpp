@@ -16,18 +16,30 @@
 
 using namespace FB;
 
-PluginWindowMacCarbon::PluginWindowMacCarbon() {}
+PluginWindowMacCarbon::PluginWindowMacCarbon() :
+    m_x(0), m_y(0), m_width(0), m_height(0),
+    m_clipLeft(0), m_clipRight(0), m_clipTop(0), m_clipBottom(0), 
+    m_old_x(0), m_old_y(0)
+{
+}
 
 PluginWindowMacCarbon::~PluginWindowMacCarbon() {}
 
 void PluginWindowMacCarbon::setWindowPosition(int32_t x, int32_t y, uint32_t width, uint32_t height) {
-    m_x = x;
-    m_y = y;
-    m_width = width;
-    m_height = height;
+    if (m_x != x
+        || m_y != y
+        || m_width != width
+        || m_height != height) {
+        m_x = x;
+        m_y = y;
+        m_width = width;
+        m_height = height;
+        ResizedEvent ev;
+        SendEvent(&ev);
+    }
 }
 
-void PluginWindowMacCarbon::setWindowClipping(uint16_t top, uint16_t left, uint16_t bottom, uint16_t right) {
+void PluginWindowMacCarbon::setWindowClipping(uint32_t top, uint32_t left, uint32_t bottom, uint32_t right) {
     m_clipTop = top;
     m_clipLeft = left;
     m_clipBottom = bottom;
@@ -36,8 +48,8 @@ void PluginWindowMacCarbon::setWindowClipping(uint16_t top, uint16_t left, uint1
     SendEvent(&ev);
 }
 
-NPRect PluginWindowMacCarbon::getWindowPosition() {
-    NPRect windRect;
+FB::Rect PluginWindowMacCarbon::getWindowPosition() const {
+	FB::Rect windRect;
     windRect.left = m_x;
     windRect.top = m_y;
     windRect.right = m_x + m_width;
@@ -45,8 +57,8 @@ NPRect PluginWindowMacCarbon::getWindowPosition() {
     return windRect;
 }
 
-NPRect PluginWindowMacCarbon::getWindowClipping() {
-    NPRect clipRect;
+FB::Rect PluginWindowMacCarbon::getWindowClipping() const {
+	FB::Rect clipRect;
     clipRect.left = m_clipLeft;
     clipRect.right = m_clipRight;
     clipRect.top = m_clipTop;
@@ -54,12 +66,22 @@ NPRect PluginWindowMacCarbon::getWindowClipping() {
     return clipRect;    
 }
 
-int PluginWindowMacCarbon::getWindowHeight() {
-    return this->m_height;
+uint32_t PluginWindowMacCarbon::getWindowHeight() const {
+    return m_height;
 }
 
-int PluginWindowMacCarbon::getWindowWidth() {
-    return this->m_width;
+uint32_t PluginWindowMacCarbon::getWindowWidth() const {
+    return m_width;
+}
+
+void PluginWindowMacCarbon::InvalidateWindow() const {
+    FB::Rect pos = getWindowPosition();
+    NPRect r = { pos.top, pos.left, pos.bottom, pos.right };
+    if (!m_npHost->isMainThread()) {
+        m_npHost->ScheduleOnMainThread(m_npHost, boost::bind(&Npapi::NpapiBrowserHost::InvalidateRect2, m_npHost, r));
+    } else {
+        m_npHost->InvalidateRect(&r);
+    }
 }
 
 void PluginWindowMacCarbon::clearWindow() {

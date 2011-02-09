@@ -79,7 +79,7 @@ void NpapiPlugin::init(NPMIMEType pluginType, int16_t argc, char* argn[], char *
         }
     }
     pluginMain->setParams(paramList);
-    if(FB::pluginGuiEnabled() && pluginMain->isWindowless()) {
+    if(!FB::pluginGuiEnabled() || pluginMain->isWindowless()) {
         /* Windowless plugins require negotiation with the browser. 
         * If the plugin does not set this value it is assumed to be 
         * a windowed plugin.
@@ -365,4 +365,5 @@ NPError NpapiPlugin::DestroyStream(NPStream* stream, NPReason reason)
 
     return NPERR_NO_ERROR;
 }
+
 

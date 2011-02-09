@@ -124,11 +124,11 @@ namespace FB {
         ///
         /// @author Matthias
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual FB::BrowserStreamPtr getStream() const;
+        virtual const FB::BrowserStreamPtr& getStream() const;
 
     protected:
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual void DefaultBrowserStreamHandler::setStream(FB::BrowserStream* stream);
+        /// @fn virtual void DefaultBrowserStreamHandler::setStream(const FB::BrowserStreamPtr& stream);
         ///
         /// @brief  Call to set the stream associated with this handler.
         ///
@@ -149,3 +149,4 @@ namespace FB {
     };
 }
 #endif // DefaultBrowserStreamHandler_h__
+

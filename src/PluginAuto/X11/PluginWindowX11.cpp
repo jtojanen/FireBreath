@@ -41,7 +41,7 @@ PluginWindowX11::PluginWindowX11(const WindowContextX11& ctx)
     m_browserWindow(0),
 #endif
     m_x(0), m_y(0), m_width(0), m_height(0), m_clipLeft(0), m_clipRight(0),
-    m_clipTop(0), m_clipBottom(0)
+    m_clipTop(0), m_clipBottom(0), m_handler_id(0)
 {
 #if FB_GUI_DISABLED != 1
     m_container = gtk_plug_new((GdkNativeWindow)ctx.window);
@@ -68,7 +68,7 @@ PluginWindowX11::PluginWindowX11(const WindowContextX11& ctx)
         GDK_FOCUS_CHANGE_MASK
     );
 
-    g_signal_connect(G_OBJECT(m_canvas), "event", G_CALLBACK(&PluginWindowX11::_EventCallback), this);
+    m_handler_id = g_signal_connect(G_OBJECT(m_canvas), "event", G_CALLBACK(&PluginWindowX11::_EventCallback), this);
     gtk_widget_show(m_canvas);
     gtk_container_add(GTK_CONTAINER(m_container), m_canvas);
     gtk_widget_show(m_container);
@@ -77,9 +77,12 @@ PluginWindowX11::PluginWindowX11(const WindowContextX11& ctx)
 
 PluginWindowX11::~PluginWindowX11()
 {
+#if FB_GUI_DISABLED != 1
+    g_signal_handler_disconnect(G_OBJECT(m_canvas), m_handler_id);
+#endif
 }
 
-void PluginWindowX11::getWindowPosition(int &x, int &y, int &w, int &h)
+void PluginWindowX11::getWindowPosition(int32_t &x, int32_t &y, uint32_t &w, uint32_t &h) const
 {
     x = m_x;
     y = m_y;
@@ -87,7 +90,13 @@ void PluginWindowX11::getWindowPosition(int &x, int &y, int &w, int &h)
     h = m_height;
 }
 
-void PluginWindowX11::setWindowPosition(int x, int y, int w, int h)
+FB::Rect PluginWindowX11::getWindowPosition() const
+{
+    FB::Rect rect = {m_y, m_x, m_y+m_height, m_x+m_width};
+    return rect;
+}
+
+void PluginWindowX11::setWindowPosition(int32_t x, int32_t y, uint32_t w, uint32_t h)
 {
     if (m_x != x
         || m_y != y
@@ -102,7 +111,7 @@ void PluginWindowX11::setWindowPosition(int x, int y, int w, int h)
     }
 }
 
-void PluginWindowX11::getWindowClipping(int &t, int &l, int &b, int &r)
+void PluginWindowX11::getWindowClipping(int32_t &t, int32_t &l, int32_t &b, int32_t &r) const
 {
     t = m_clipTop;
     l = m_clipLeft;
@@ -110,7 +119,13 @@ void PluginWindowX11::getWindowClipping(int &t, int &l, int &b, int &r)
     r = m_clipRight;
 }
 
-void PluginWindowX11::setWindowClipping(int t, int l, int b, int r)
+FB::Rect PluginWindowX11::getWindowClipping() const
+{
+    FB::Rect rect = {m_clipTop, m_clipLeft, m_clipBottom, m_clipRight};
+    return rect;
+}
+
+void PluginWindowX11::setWindowClipping(int32_t t, int32_t l, int32_t b, int32_t r)
 {
     if (m_clipTop != t
         || m_clipLeft != l
@@ -234,7 +249,8 @@ GdkNativeWindow PluginWindowX11::getWindow()
 
 #endif
 
-void PluginWindowX11::InvalidateWindow()
+void PluginWindowX11::InvalidateWindow() const
 {
     // Doesn't exist yet
 }
+

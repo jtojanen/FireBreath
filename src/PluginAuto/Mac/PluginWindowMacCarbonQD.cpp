@@ -30,60 +30,12 @@ FB::PluginWindowMacCarbonQD* FB::createPluginWindowCarbonQD(const FB::WindowCont
 
 PluginWindowMacCarbonQD::PluginWindowMacCarbonQD(const WindowContextQuickDraw& ctx)
   : m_port(ctx.port)
-  , m_x(ctx.x)
-  , m_y(ctx.y)
 {
 
 }
 
 PluginWindowMacCarbonQD::~PluginWindowMacCarbonQD()
 {
-}
-
-void PluginWindowMacCarbonQD::getWindowPosition(int &x, int &y, int &w, int &h)
-{
-    x = m_x;
-    y = m_y;
-    w = m_width;
-    h = m_height;
-}
-
-void PluginWindowMacCarbonQD::setWindowPosition(int x, int y, int w, int h)
-{
-    if (m_x != x
-        || m_y != y
-        || m_width != w
-        || m_height != h) {
-        m_x = x;
-        m_y = y;
-        m_width = w;
-        m_height = h;
-        ResizedEvent ev;
-        SendEvent(&ev);
-    }
-}
-
-void PluginWindowMacCarbonQD::getWindowClipping(int &t, int &l, int &b, int &r)
-{
-    t = m_clipTop;
-    l = m_clipLeft;
-    b = m_clipBottom;
-    r = m_clipRight;
-}
-
-void PluginWindowMacCarbonQD::setWindowClipping(int t, int l, int b, int r)
-{
-    if (m_clipTop != t
-        || m_clipLeft != l
-        || m_clipBottom != b
-        || m_clipRight != r) {
-        m_clipTop = t;
-        m_clipLeft = l;
-        m_clipBottom = b;
-        m_clipRight = r;
-        ClipChangedEvent ev;
-        SendEvent(&ev);
-    }
 }
 
 int16_t PluginWindowMacCarbonQD::HandleEvent(EventRecord* evt)
@@ -105,3 +57,4 @@ int16_t PluginWindowMacCarbonQD::HandleEvent(EventRecord* evt)
     }
     return false;
 }
+

@@ -1,4 +1,4 @@
-/**********************************************************\ 
+/**********************************************************\
 Original Author: Richard Bateman (taxilian)
 
 Created:    Sep 10, 2010
@@ -30,7 +30,6 @@ public:
 
 public:
     virtual FB::JSAPIPtr createJSAPI() { return FB::JSAPIPtr(new TestObjectJSAPI()); }
-    virtual bool IsWindowless() { return false; }
     bool HandleEvent(FB::PluginEvent *,FB::PluginEventSource *) { return false; }
 
 };
@@ -38,3 +37,4 @@ public:
 int TestPlugin::init = 0;
 
 #endif
+

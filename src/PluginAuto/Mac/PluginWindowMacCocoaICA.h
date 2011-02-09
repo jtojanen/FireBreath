@@ -28,9 +28,8 @@ namespace FB {
         public:
             PluginWindowMacCocoaICA();
             ~PluginWindowMacCocoaICA();
-
-            void InvalidateWindow();
     };
 };
 
 #endif
+

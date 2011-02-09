@@ -21,7 +21,7 @@ using boost::assign::list_of;
 
 #include "SimpleMathAPI.h"
 
-SimpleMathAPI::SimpleMathAPI(FB::BrowserHostPtr host) : m_host(host)
+SimpleMathAPI::SimpleMathAPI(const FB::BrowserHostPtr& host) : m_host(host)
 {
     registerMethod("add",  make_method(this, &SimpleMathAPI::add));
     registerMethod("sub",  make_method(this, &SimpleMathAPI::sub));
@@ -60,3 +60,4 @@ long SimpleMathAPI::div(long a, long b)
 {
     return a/b;
 }
+

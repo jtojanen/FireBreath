@@ -1,4 +1,5 @@
 
+#include "win_targetver.h"
 #include "APITypes.h"
 #include "JSAPI.h"
 #include "global/resource.h"
@@ -26,3 +27,4 @@ IDispatchEx* _getCOMJSWrapper( FB::BrowserHostPtr host, FB::JSAPIWeakPtr api )
 HRESULT _updateRegistry( bool res ) {
     return CFBControl0::UpdateRegistry(true);
 }
+

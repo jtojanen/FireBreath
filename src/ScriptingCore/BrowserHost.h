@@ -21,6 +21,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <boost/noncopyable.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 namespace FB
 {
@@ -49,6 +50,7 @@ namespace FB
     };
 
     FB_FORWARD_PTR(AsyncCallManager);
+    FB_FORWARD_PTR(BrowserStreamManager);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  BrowserHost
@@ -57,7 +59,8 @@ namespace FB
     ///
     /// In actual use, this class will be used as either a NpapiBrowserHost or a ActiveXBrowserHost.
     /// This class provides APIs for making calls to the browser of any kind.  It is also used for
-    /// making calls on the primary thread.
+    /// making calls on the primary thread. There will always be exactly one BrowserHost object per
+    /// plugin instance and it is unique to that instance
     /// @see NpapiBrowserHost
     /// @see ActiveXBrowserHost
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,14 +94,15 @@ namespace FB
         ///     void funcName(void *userData)
         /// @endcode
         ///
-        /// The provided function will be called with the userData on the main thread.
+        /// The provided function will be called with the userData on the main thread. If the 
+        /// plugin instance is shutting down this may fail and return false
         /// 
         /// NOTE: This is a low level call; it is almost always better to use ScheduleOnMainThread
         /// 
         /// @param  func     The function to call. 
         /// @param  userData The userData to pass to the function.
         ///
-        /// @returns bool true if the call was scheduled
+        /// @returns bool true if the call was scheduled, false if it could not be
         ///                  
         /// @see ScheduleOnMainThread
         /// @see CallOnMainThread
@@ -112,14 +116,20 @@ namespace FB
         ///
         /// With this template function calls can be made on the main thread like so:
         /// @code
-        ///      int result = host->CallOnMainThread(boost::bind(&ObjectType::method, obj, arg1, arg2));
+        /// try {
+        ///     int result = host->CallOnMainThread(boost::bind(&ObjectType::method, obj, arg1, arg2));
+        /// } catch (const FB::script_error&) {
+        ///     // The call will throw this exception if the browser is shutting down and it cannot
+        ///     // be completed.
+        /// }
         /// @endcode
         /// 
-        /// This is a synchronous cross-thread call, and as such may have a performance penalty
+        /// This is a synchronous cross-thread call, and as such may have a performance penalty.
         /// 
         /// @param  func    The functor to execute on the main thread created with boost::bind
         ///
         /// @return The return value from the call
+        /// @throws FB::script_error
         /// @see ScheduleOnMainThread
         /// @since 1.3.0
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -127,15 +137,20 @@ namespace FB
         typename Functor::result_type CallOnMainThread(Functor func);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn template<class C, class Functor> void ScheduleOnMainThread(boost::shared_ptr<C> obj, Functor func)
+        /// @fn template<class C, class Functor> void ScheduleOnMainThread(const boost::shared_ptr<C>& obj, Functor func)
         ///
         /// @brief  Schedule a call to be executed on the main thread. 
         ///
         /// With this template function a call can be scheduled to run asynchronously on the main thread
         /// like so:
         /// @code
-        ///      boost::shared_ptr<ObjectType> obj(get_object_sharedptr());
-        ///      host->ScheduleOnMainThread(obj, boost::bind(&ObjectType::method, obj, arg1, arg2));
+        /// try {
+        ///     boost::shared_ptr<ObjectType> obj(get_object_sharedptr());
+        ///     host->ScheduleOnMainThread(obj, boost::bind(&ObjectType::method, obj, arg1, arg2));
+        /// } catch (const FB::script_error&) {
+        ///     // The call will throw this exception if the browser is shutting down and it cannot
+        ///     // be completed.
+        /// }
         /// @endcode
         ///         
         /// Note that the first parameter should be a shared_ptr to the object the call is made on; this
@@ -144,12 +159,13 @@ namespace FB
         ///
         /// @param  obj     A boost::shared_ptr to the object that must exist when the call is made
         /// @param  func    The functor to execute on the main thread created with boost::bind
+        /// @throws FB::script_error
         /// @see CallOnMainThread
         /// @see ScheduleAsyncCall
         /// @since 1.3.0
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         template<class C, class Functor>
-        void ScheduleOnMainThread(boost::shared_ptr<C> obj, Functor func);
+        void ScheduleOnMainThread(const boost::shared_ptr<C>& obj, Functor func);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn static void AsyncHtmlLog(void *)
@@ -194,7 +210,7 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual BrowserStreamPtr createStream(const std::string& url, const PluginEventSinkPtr& callback, 
                                             bool cache = true, bool seekable = false, 
-                                            size_t internalBufferSize = 128 * 1024 ) const = 0;
+                                            size_t internalBufferSize = 128 * 1024 ) const;
         
         // Methods for accessing the DOM
     public:
@@ -317,6 +333,14 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         void releaseJSAPIPtr(const FB::JSAPIPtr& obj) const;
 
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual void DoDeferredRelease() const
+        ///
+        /// @brief  Releases any browser-specific objects that were destroyed on a thread other than the
+        ///         main thread.  Usually safe to just let FireBreath deal with this
+        /// @since 1.4b3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void DoDeferredRelease() const = 0;
     public:
         virtual FB::DOM::WindowPtr _createWindow(const FB::JSObjectPtr& obj) const;
         virtual FB::DOM::DocumentPtr _createDocument(const FB::JSObjectPtr& obj) const;
@@ -327,6 +351,9 @@ namespace FB
         mutable AsyncCallManagerPtr _asyncManager;
         // Yes, this is supposed to be both private and pure virtual.
         virtual bool _scheduleAsyncCall(void (*func)(void *), void *userData) const = 0;
+        virtual BrowserStreamPtr _createStream(const std::string& url, const PluginEventSinkPtr& callback, 
+                                            bool cache = true, bool seekable = false, 
+                                            size_t internalBufferSize = 128 * 1024 ) const = 0;
 
     public:
 
@@ -351,8 +378,11 @@ namespace FB
         bool m_isShutDown;
         // Used to prevent race conditions with scheduling cross-thread calls during shutdown
         mutable boost::shared_mutex m_xtmutex;
+        // Used to prevent race conditions with scheduling cross-thread calls during shutdown
+        mutable boost::recursive_mutex m_jsapimutex;
 
         mutable std::set<FB::JSAPIPtr> m_retainedObjects;
+        BrowserStreamManagerPtr m_streamMgr;
     };
 
     
@@ -363,3 +393,4 @@ namespace FB
 #include "CrossThreadCall.h"
 
 #endif
+

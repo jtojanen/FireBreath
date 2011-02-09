@@ -12,6 +12,7 @@ License:    Dual license model; choose one of two:
 Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
+#include "win_targetver.h"
 #include <boost/bind.hpp>
 #include <dispex.h>
 #include <boost/scoped_array.hpp>
@@ -31,6 +32,7 @@ boost::shared_ptr<FB::ActiveX::IDispatchAPI> IDispatchAPI::create(IDispatch * ob
 FB::ActiveX::IDispatchAPI::IDispatchAPI(IDispatch * obj, const ActiveXBrowserHostPtr& host) :
     FB::JSObject(host), m_obj(obj), m_browser(host), is_JSAPI(false)
 {
+    m_obj->AddRef();
     FB::JSAPIPtr ptr(getJSAPI());
     
     if (ptr) {
@@ -43,12 +45,8 @@ FB::ActiveX::IDispatchAPI::IDispatchAPI(IDispatch * obj, const ActiveXBrowserHos
 
 IDispatchAPI::~IDispatchAPI(void)
 {
-    host->CallOnMainThread(boost::bind(&IDispatchAPI::releaseObject, this));
-}
-
-void IDispatchAPI::releaseObject()
-{
-    m_obj.Release();
+    m_browser->deferred_release(m_obj);
+    m_obj = NULL;
 }
 
 void IDispatchAPI::getMemberNames(std::vector<std::string> &nameVector) const
@@ -71,7 +69,7 @@ void IDispatchAPI::getMemberNames(std::vector<std::string> &nameVector) const
     }
 
 	DISPID dispid = DISPID_STARTENUM;
-	while (SUCCEEDED(dispatchEx->GetNextDispID(fdexEnumAll, dispid, &dispid))) {
+	while (dispatchEx->GetNextDispID(fdexEnumAll, dispid, &dispid) != S_FALSE) {
 		if (dispid < 0) {
 			continue;
 		}
@@ -105,7 +103,7 @@ size_t IDispatchAPI::getMemberCount() const
 
     size_t count = 0;
     DISPID dispid = DISPID_STARTENUM;    
-    while (SUCCEEDED(dispatchEx->GetNextDispID(fdexEnumAll, dispid, &dispid))) {
+    while (dispatchEx->GetNextDispID(fdexEnumAll, dispid, &dispid) != S_FALSE) {
         if (dispid >= 0) {
 			++count;
 		}
@@ -407,9 +405,10 @@ FB::JSAPIPtr IDispatchAPI::getJSAPI() const
     CComQIPtr<IFireBreathObject> fbObj(m_obj);
     // If it's our own element then both of these will pass!  This means it isn't us!
     CComQIPtr<IHTMLElement> testObj(m_obj);
-    if (!testObj && fbObj && (p = dynamic_cast<JSAPI_IDispatchExBase*>(m_obj.p))) {
+    if (!testObj && fbObj && (p = dynamic_cast<JSAPI_IDispatchExBase*>(m_obj))) {
         return p->getAPI();
     }
 
     return FB::JSAPIPtr();
 }
+
