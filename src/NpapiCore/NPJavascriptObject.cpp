@@ -19,11 +19,12 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 using namespace FB::Npapi;
 
-NPJavascriptObject *NPJavascriptObject::NewObject(NpapiBrowserHostPtr host, FB::JSAPIWeakPtr api)
+NPJavascriptObject *NPJavascriptObject::NewObject(NpapiBrowserHostPtr host, FB::JSAPIWeakPtr api, bool auto_release/* = false*/)
 {
     NPJavascriptObject *obj = static_cast<NPJavascriptObject *>(host->CreateObject(&NPJavascriptObjectClass));
 
     obj->setAPI(api, host);
+    obj->m_autoRelease = auto_release;
     return obj;
 }
 
@@ -33,27 +34,28 @@ bool NPJavascriptObject::isNPJavaScriptObject(const NPObject* const npo)
 }
 
 NPJavascriptObject::NPJavascriptObject(NPP npp)
-    : m_valid(true), m_addEventFunc(boost::make_shared<NPO_addEventListener>(this)),
+    : m_valid(true), m_autoRelease(false), m_addEventFunc(boost::make_shared<NPO_addEventListener>(this)),
     m_removeEventFunc(boost::make_shared<NPO_removeEventListener>(this))
 {
+    m_sharedRef = boost::make_shared<FB::ShareableReference<NPJavascriptObject> >(this);
 }
 
 NPJavascriptObject::~NPJavascriptObject(void)
 {
+    if (m_autoRelease) {
+        FB::JSAPIPtr api(m_api.lock());
+        // If the JSAPI object is still around and we're set to autorelease, tell the BrowserHost
+        // that we're done with it.  Otherwise it's either gone or we don't control its lifecycle
+        if (api) {
+            m_browser->releaseJSAPIPtr(api);
+        }
+    }
 }
 
 void NPJavascriptObject::setAPI(FB::JSAPIWeakPtr api, NpapiBrowserHostPtr host)
 {
     m_api = api;
     m_browser = host;
-}
-
-FB::JSAPIPtr NPJavascriptObject::getAPI() const 
-{
-    FB::JSAPIPtr ptr(m_api.lock());
-    if (!ptr)
-        throw std::bad_cast();
-    return ptr;
 }
 
 void NPJavascriptObject::Invalidate()
@@ -382,5 +384,3 @@ NPClass NPJavascriptObject::NPJavascriptObjectClass = {
     NPJavascriptObject::_Enumeration,
     NPJavascriptObject::_Construct
 };
-
-

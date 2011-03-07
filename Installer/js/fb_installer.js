@@ -13,42 +13,16 @@ License:    Dual license model; choose one of two:
 Copyright 2009 PacketPass, Inc and the Firebreath development team
 \*****************************************************************/
 
-if (!FireBreath) {
-    FireBreath = { };
-}
-if (!FireBreath.pluginDefs) {
-    FireBreath.pluginDefs = { };
-}
-
 /*********************************************\
- Here the data for all the plugins is defined
- - To support multiple plugins with the same
-   install script, add additional entries
- - To support one plugin with multiple mime-
-   types, pretend that it's a second plugin =]
+ This package defines shared FB functionality.
+ Individual plugin data is generated at the end
 \*********************************************/
-
-FireBreath.pluginDefs.${PLUGIN_NAME} = {
-        "name"          : "${FBSTRING_PluginName}",
-        "mimeType"      : "${FBSTRING_MIMEType}",
-        "activeXName"   : "${ACTIVEX_PROGID}",
-        "guid"          : "${FBControl_GUID}",
-        "installURL"    : {
-                "win"   : "${PLUGIN_NAME}_installer.msi"
-            }
-    };
-
-
-
-
-/*********************************************\
- You should not need to modify anything below
- this line
-\*********************************************/
-
-if (!FireBreath.$)
+if (typeof FireBreath === 'undefined')
 {
-    FB.$ = function(el)
+    FireBreath = { };
+    FireBreath.pluginDefs = { };
+
+    FireBreath.$ = function(el)
     {
         if (typeof(el) == "string") {
             return document.getElementById(el);
@@ -56,66 +30,145 @@ if (!FireBreath.$)
             return el;
         }
     };
-}
 
-FB.isPluginInstalled = function(pluginName)
-{
-    if (!FireBreath.pluginDefs[pluginName]) {
-        return null;
-    }
-    
-    if (window.ActiveXObject) {
-        // We're running IE
-        return FB._isIEPluginInstalled(pluginName);
-    } else if (navigator.plugins) {
-        // We're running something else
-        return FB._isNpapiPluginInstalled(pluginName);
-    }
-};
+	// returns:
+	//	- null: no plugin definition found in FireBreath.pluginDefs
+	//	- false: plugin not installed
+	//	- true: plugin exists but no version could be obtained
+	//	- <NPAPI>:version number from np DLL file-name
+	//	- <IE>:version property returned by instanced plugin object
+	FireBreath.isPluginInstalled = function(pluginName)
+	{
+		//check if plugin exists
+		if (!FireBreath.pluginDefs[pluginName]) {
+			return null;
+		}
+		
+		if (window.ActiveXObject) {
+			// We're running IE
+			return FireBreath._isIEPluginInstalled(pluginName);
+		} else if (navigator.plugins) {
+			// We're running something else
+			return FireBreath._isNpapiPluginInstalled(pluginName);
+		}
+	};
 
-FB._isIEPluginInstalled = function(pluginName)
-{
-    var axname = FireBreath.pluginDefs[pluginName].activeXName;
+	FireBreath._isIEPluginInstalled = function(pluginName)
+	{
+		var axname = FireBreath.pluginDefs[pluginName].activeXName;
 
-    var plugin = false;
-    try {
-        plugin = new ActiveXControl(axname);
-    } catch (e) {
-        if (e.message != "Object doesn't support this property or method")
-        {
-            // Couldn't create the plugin; return false
-            return false;
-        }
-    }
-    if (plugin) {
-        try {
-            var version = plugin.version;
-            return version;
-        } catch (e) {
-            return true; // Installed, unknown version
-        }
-    }
-    // Couldn't create the plugin; return false
-    return false;
-};
+		//check if plugin exists
+		var plugin = false;
+		try {
+			plugin = new ActiveXObject(axname);
+		} catch (e) {
+			return null;
+		}
 
-FB._isNpapiPluginInstalled = function(pluginName)
-{
-    var mimeType = FireBreath.pluginDefs[pluginName].mimeType;
-    var name = FireBreath.pluginDefs[pluginName].name;
-    
-    if (typeof(navigator.plugins[name]) != "undefined")
-    {
-        var re = /([0-9.]+)\.dll/; // look for the version at the end of the filename, before dll
+		var version = false;
 
-        // Get the filename
-        var filename = navigator.plugins[name].filename;
-        // Search for the version
-        var fnd = re.exec(filename);
-        if (fnd === null) {// no version found
-            return true; // plugin installed, unknown version
+		if(plugin)
+		{
+			try {
+				version = plugin.version;
+			} catch (e) {
+				version = true; // Installed, unknown version
+			}
+		}
+		return version;
+	};
+
+	FireBreath._isNpapiPluginInstalled = function(pluginName)
+	{
+		var mimeType = FireBreath.pluginDefs[pluginName].mimeType;
+		var name = FireBreath.pluginDefs[pluginName].name;
+		
+		if (typeof(navigator.plugins[name]) != "undefined")
+		{
+			var re = /([0-9.]+)\.dll/; // look for the version at the end of the filename, before dll
+
+			// Get the filename
+			var filename = navigator.plugins[name].filename;
+			// Search for the version
+			var fnd = re.exec(filename);
+			if (fnd === null) {// no version found
+				return true; // plugin installed, unknown version
+			} else {
+				return fnd[1]; // plugin installed, returning version
+			}
+		}
+		
+		return false;
+	}
+
+    FireBreath.waitId = -1;
+    FireBreath.waitForInstall = function(pluginName, callback) {
+        if (FireBreath.isPluginInstalled(pluginName)) {
+            callback(FireBreath.isPluginInstalled(pluginName));
+            FireBreath.waitId = -1;
         } else {
-            return fnd[1]; // plugin installed, returning version
+            FireBreath.waitId = setTimeout(
+                    function() { FireBreath.waitForInstall(pluginName, callback); },
+                    FireBreath.pollInterval);
         }
-    }
+    };
+
+    FireBreath.abortWait = function() {
+        if (FireBreath.waitId != -1) {
+            clearInterval(FBPluginMgr.waitId);
+            FireBreath.waitId = -1;
+        }
+    };
+
+    FireBreath.injectPlugin = function(pluginName, dest, id, callback, params) {
+		var info = FireBreath.pluginDefs[pluginName];
+        if (typeof(params) == "undefined") {
+            params = {};
+        }   
+        __pluginCB = callback;
+        params["onload"] = "__pluginCB";
+        var html = '<object id="' + id + '" type="' + info.mimeType + '" width="100%" height="100%">';
+        for (paramName in params) {
+            html += '<param name="' + paramName + '" value="' + params[paramName] + '" />';
+        }
+        html += '</object>';
+        dest.innerHTML = html;
+    };
+
+    FireBreath.addListener = (document.attachEvent) ?
+        function(obj, type, handler) {
+            obj.attachEvent("on" + type, handler);
+        } : function(obj, type, handler) {
+            obj.addEventListener(type, handler, false);
+        };
+
+    FireBreath.ifInstalled = function(pluginName, yes, no) {
+        if (FBPluginMgr.isPluginInstalled(pluginName))
+            yes(FBPluginMgr.isPluginInstalled(pluginName));
+        else
+            no();
+    };
 }
+
+
+/*********************************************\
+ This is the only part of the file which changes
+ for each plugin, when generated by CMake.
+ 
+ Here the data for all the plugins is defined
+ - To support multiple plugins with the same
+   install script, add additional entries
+ - To support one plugin with multiple mime-
+   types, pretend that it's a second plugin =]
+\*********************************************/
+FireBreath.pluginDefs.${PLUGIN_NAME} = {
+		"name"          : "${FBSTRING_PluginName}",
+		"mimeType"      : "${FBSTRING_MIMEType}",
+		"activeXName"   : "${ACTIVEX_PROGID}",
+		"guid"          : "${FBControl_GUID}",
+		"installURL"    : {
+				"win"   : "${PLUGIN_NAME}_installer.msi"
+			}
+	};
+FireBreath.pollInterval = 500;
+

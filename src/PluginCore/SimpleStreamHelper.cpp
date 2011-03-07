@@ -15,13 +15,13 @@ Copyright 2011 Richard Bateman,
 
 #include "BrowserHost.h"
 #include <boost/algorithm/string.hpp>
-
+#include <boost/bind.hpp>
 #include "SimpleStreamHelper.h"
 
 static const int MEGABYTE = 1024 * 1024;
 
 FB::SimpleStreamHelperPtr FB::SimpleStreamHelper::AsyncGet( const FB::BrowserHostPtr& host, const FB::URI& uri,
-    const HttpCallback& callback, const bool cache /*= true*/, const size_t bufferSize /*= 256*1024*/ )
+    const HttpCallback& callback, bool cache /*= true*/, size_t bufferSize /*= 256*1024*/ )
 {
     if (!host->isMainThread()) {
         // This must be run from the main thread
@@ -34,6 +34,22 @@ FB::SimpleStreamHelperPtr FB::SimpleStreamHelper::AsyncGet( const FB::BrowserHos
     FB::BrowserStreamPtr stream(host->createStream(uri.toString(), ptr, true, false, bufferSize));
     return ptr;
 }
+
+FB::SimpleStreamHelperPtr FB::SimpleStreamHelper::AsyncPost( const FB::BrowserHostPtr& host, const FB::URI& uri, const std::string& postdata, 
+														   const HttpCallback& callback, bool cache /*= true*/, size_t bufferSize /*= 256*1024*/ )
+{
+	if (!host->isMainThread()) {
+		// This must be run from the main thread
+		return host->CallOnMainThread(boost::bind(&FB::SimpleStreamHelper::AsyncPost, host, uri, postdata, callback, cache, bufferSize));
+	}
+	FB::SimpleStreamHelperPtr ptr(boost::make_shared<FB::SimpleStreamHelper>(host, callback, bufferSize));
+	// This is kinda a weird trick; it's responsible for freeing itself, unless something decides
+	// to hold a reference to it.
+	ptr->keepReference(ptr);
+	FB::BrowserStreamPtr stream(host->createPostStream(uri.toString(), ptr, postdata, true, false, bufferSize));
+	return ptr;
+}
+
 
 struct SyncGetHelper
 {
@@ -149,7 +165,7 @@ bool FB::SimpleStreamHelper::onStreamDataArrived( FB::StreamDataArrivedEvent *ev
             curLen = blockSize-pos;
         }
         // Copy the bytes that fit in this buffer
-        std::copy(buf, buf+curLen, destBuf+offset);
+        std::copy(buf, buf+curLen, destBuf+pos);
         buf += curLen;
         offset += curLen;
         len -= curLen;

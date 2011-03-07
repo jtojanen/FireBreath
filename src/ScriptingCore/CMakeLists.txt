@@ -16,10 +16,7 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
-set (PROJNAME ScriptingCore)
-Project (${PROJNAME})
+Project (ScriptingCore)
 if (VERBOSE)
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
 endif()
@@ -27,10 +24,10 @@ endif()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GTK_INCLUDE_DIRS}
-    ${FIREBREATH_CONFIG_DIR}
-    ${PLUGINCORE_SOURCE_DIR}
+    ${FB_CONFIG_DIR}
+    ${FB_PLUGINCORE_SOURCE_DIR}
     ${Boost_INCLUDE_DIRS}
-    ${CONFIG_DIR}
+    ${FB_CONFIG_DIR}
     )
 
 file (GLOB DOMTYPES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -42,6 +39,7 @@ SOURCE_GROUP(DOM FILES ${DOMTYPES})
 
 file (GLOB UTILTYPES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     Util/[^.]*
+    Shareable*
 )
 
 SOURCE_GROUP(Util FILES ${UTILTYPES})
@@ -91,8 +89,17 @@ set (SOURCES
     ${GENERAL}
     )
 
-add_library(${PROJNAME} STATIC ${SOURCES})
-target_link_libraries(${PROJNAME}
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
+
+target_link_libraries(${PROJECT_NAME}
     ${Boost_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
-    )
+)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "FireBreath Core")
+
+if (NOT WITH_SYSTEM_BOOST)
+	export(TARGETS ScriptingCore ${Boost_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
+else()
+	export(TARGETS ScriptingCore APPEND FILE ${FB_EXPORT_FILE})
+endif()

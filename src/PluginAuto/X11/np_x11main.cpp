@@ -26,15 +26,16 @@ extern "C" char * NP_GetPluginVersion()
     return (char *)FBSTRING_PLUGIN_VERSION;
 }
 
-extern "C" char * NP_GetMIMEDescription()
+extern "C" const char * NP_GetMIMEDescription()
 {
     return (char *)FBSTRING_X11MIMEType;
 }
 
 extern "C" NPError NP_GetValue(void *future, NPPVariable variable, void *value)
 {
-    initPluginModule();
-    return module->NPP_GetValue((NPP_t *)future, variable, value);
+    // Create a temporary npapipluginmodule -- false means don't initialize everything
+    NpapiPluginModule module(false);
+    return module.NPP_GetValue((NPP_t *)future, variable, value);
 }
 
 extern "C" NPError NP_Initialize(NPNetscapeFuncs* pFuncs

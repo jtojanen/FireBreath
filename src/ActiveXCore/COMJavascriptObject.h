@@ -17,11 +17,15 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #define H_COMJAVASCRIPTOBJECT
 
 #include "JSAPI_IDispatchEx.h"
+#include "ShareableReference.h"
+#include <boost/make_shared.hpp>
 
 namespace FB {
     namespace ActiveX {
         class ActiveXBrowserHost;
 
+        typedef boost::shared_ptr<FB::ShareableReference<IDispatchEx> > SharedIDispatchRef;
+        typedef boost::weak_ptr<FB::ShareableReference<IDispatchEx> > WeakIDispatchRef;
         template <const GUID* pclsid, class ICurObjInterface, const IID* piid, const GUID* plibid>
         class ATL_NO_VTABLE COMJavascriptObject :
             public CComObjectRootEx<CComMultiThreadModel>,
@@ -35,24 +39,29 @@ namespace FB {
         {
         public:
             typedef COMJavascriptObject<pclsid, ICurObjInterface, piid, plibid> CurObjType;
-            COMJavascriptObject(void) : JSAPI_IDispatchEx<CurObjType, ICurObjInterface, piid>("SUBOBJECT")
+            COMJavascriptObject(void)
+                : JSAPI_IDispatchEx<CurObjType, ICurObjInterface, piid>("SUBOBJECT")
             {
+                m_sharedRef = boost::make_shared<FB::ShareableReference<IDispatchEx> >(this);
             }
             virtual ~COMJavascriptObject(void)
             {
             }
 
-            static IDispatchEx *NewObject(ActiveXBrowserHostPtr host, FB::JSAPIWeakPtr api)
+            static IDispatchEx *NewObject(ActiveXBrowserHostPtr host, FB::JSAPIWeakPtr api, bool auto_release = false)
             {
                 CComObject<CurObjType> *obj;
                 HRESULT hr = CComObject<CurObjType>::CreateInstance(&obj);
                 
                 obj->setAPI(api, host);
+                obj->m_autoRelease = auto_release;
                 IDispatchEx *retval;
                 hr = obj->QueryInterface(IID_IDispatchEx, (void **)&retval);
 
                 return retval;
             }
+
+            const WeakIDispatchRef getWeakReference() { return m_sharedRef; }
 
         DECLARE_NOT_AGGREGATABLE(CurObjType)
 
@@ -78,7 +87,19 @@ namespace FB {
 
             void FinalRelease()
             {
+                if (m_autoRelease) {
+                    FB::JSAPIPtr api(m_api.lock());
+                    // If the JSAPI object is still around and we're set to autorelease, tell the BrowserHost
+                    // that we're done with it.  Otherwise it's either gone or we don't control its lifecycle
+                    if (api) {
+                        m_host->releaseJSAPIPtr(api);
+                    }
+                }
             }
+
+        private:
+            bool m_autoRelease;
+            SharedIDispatchRef m_sharedRef;
         };
     };
 };

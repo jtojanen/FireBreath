@@ -61,15 +61,9 @@ MACRO(add_x11_plugin PROJNAME INSOURCES)
         PROJECT_LABEL "${PROJNAME}"
         LINK_FLAGS "${NPAPI_LINK_FLAGS}"
         PREFIX ""
-        RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
-        LIBRARY_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
+        RUNTIME_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
+        LIBRARY_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
     )
-
-    if (NOT FB_GUI_DISABLED)
-        target_link_libraries(${PROJNAME}
-            ${GTK_LIBRARIES}
-        )
-    endif()
 ENDMACRO(add_x11_plugin)
 
 function (add_rpm_package PROJNAME )
@@ -84,3 +78,7 @@ function (add_deb_package PROJNAME )
 
 endfunction(add_deb_package)
 
+set (GUI_INCLUDE_DIRS ${GTK_INCLUDE_DIRS} CACHE INTERNAL "GTK include dirs")
+set (GUI_LIBRARIES ${GTK_LIBRARIES} CACHE INTERNAL "GTK include dirs")
+set (GUI_LIBRARY_DIRS ${GTK_LIBRARY_DIRS} CACHE INTERNAL "GTK include dirs")
+set (GUI_LDFLAGS ${GTK_LDFLAGS} CACHE INTERNAL "GTK include dirs")

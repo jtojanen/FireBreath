@@ -88,9 +88,9 @@ FB::PluginWindowlessWin* FB::FactoryBase::createPluginWindowless(const WindowCon
 {
     return FB::createPluginWindowless(ctx);
 }
-IDispatchEx* FB::FactoryBase::createCOMJSObject( BrowserHostPtr host, FB::JSAPIWeakPtr api )
+IDispatchEx* FB::FactoryBase::createCOMJSObject(const FB::BrowserHostPtr& host, const FB::JSAPIWeakPtr& api, bool autoRelease/* = false*/)
 {
-    return _getCOMJSWrapper(host, api);
+    return _getCOMJSWrapper(host, api, autoRelease);
 }
 
 HRESULT FB::FactoryBase::UpdateWindowsRegistry( bool install )
@@ -101,30 +101,31 @@ HRESULT FB::FactoryBase::UpdateWindowsRegistry( bool install )
 #endif
 
 #ifdef FB_MACOSX
-FB::PluginWindowMacCarbonQD* FB::FactoryBase::createPluginWindowCarbonQD(const FB::WindowContextQuickDraw& ctx)
+FB::PluginWindowMacCA* FB::FactoryBase::createPluginWindowMacCA(bool invalidating)
 {
-    return FB::createPluginWindowCarbonQD(ctx);
+    return FB::createPluginWindowMacCA(invalidating);
 }
+FB::PluginWindowMacCG* FB::FactoryBase::createPluginWindowMacCG()
+{
+    return FB::createPluginWindowMacCG();
+}
+#ifndef NP_NO_QUICKDRAW
+FB::PluginWindowMacQD* FB::FactoryBase::createPluginWindowMacQD()
+{
+    return FB::createPluginWindowMacQD();
+}
+#endif
+FB::PluginEventMacCocoa* FB::FactoryBase::createPluginEventMacCocoa()
+{
+    return FB::createPluginEventMacCocoa();
+}
+#ifndef NP_NO_CARBON
+FB::PluginEventMacCarbon* FB::FactoryBase::createPluginEventMacCarbon()
+{
+    return FB::createPluginEventMacCarbon();
+}
+#endif
 
-FB::PluginWindowMacCarbonCG* FB::FactoryBase::createPluginWindowCarbonCG(const FB::WindowContextCoreGraphics& ctx)
-{
-    return FB::createPluginWindowCarbonCG(ctx);
-}
-
-FB::PluginWindowMacCocoaCG* FB::FactoryBase::createPluginWindowCocoaCG()
-{
-    return FB::createPluginWindowCocoaCG();
-}
-
-FB::PluginWindowMacCocoaCA* FB::FactoryBase::createPluginWindowCocoaCA()
-{
-    return FB::createPluginWindowCocoaCA();
-}
-
-FB::PluginWindowMacCocoaICA* FB::FactoryBase::createPluginWindowCocoaICA()
-{
-    return FB::createPluginWindowCocoaICA();
-}
 #endif
 
 #ifdef FB_X11

@@ -163,14 +163,19 @@ void FB::BrowserHost::freeRetainedObjects() const
 void FB::BrowserHost::retainJSAPIPtr( const FB::JSAPIPtr& obj ) const
 {
     boost::recursive_mutex::scoped_lock _l(m_jsapimutex);
-    m_retainedObjects.insert(obj);
+    m_retainedObjects.push_back(obj);
 }
 
 void FB::BrowserHost::releaseJSAPIPtr( const FB::JSAPIPtr& obj ) const
 {
     boost::recursive_mutex::scoped_lock _l(m_jsapimutex);
-    m_retainedObjects.erase(m_retainedObjects.find(obj));
-    DoDeferredRelease();
+    std::list<FB::JSAPIPtr>::iterator it = std::find_if(m_retainedObjects.begin(), m_retainedObjects.end(), boost::lambda::_1 == obj);
+    if (it != m_retainedObjects.end()) {
+        m_retainedObjects.erase(it);
+    }
+
+    if (isMainThread())
+        DoDeferredRelease();
 }
 
 void FB::_asyncCallData::call()
@@ -237,6 +242,18 @@ FB::BrowserStreamPtr FB::BrowserHost::createStream( const std::string& url,
 {
     assertMainThread();
     FB::BrowserStreamPtr ptr(_createStream(url, callback, cache, seekable, internalBufferSize));
+    if (ptr) {
+        m_streamMgr->retainStream(ptr);
+    }
+    return ptr;
+}
+
+FB::BrowserStreamPtr FB::BrowserHost::createPostStream( const std::string& url,
+    const PluginEventSinkPtr& callback, const std::string& postdata, bool cache /*= true*/, 
+	bool seekable /*= false*/, size_t internalBufferSize /*= 128 * 1024 */ ) const
+{
+    assertMainThread();
+    FB::BrowserStreamPtr ptr(_createPostStream(url, callback, postdata, cache, seekable, internalBufferSize));
     if (ptr) {
         m_streamMgr->retainStream(ptr);
     }

@@ -49,7 +49,11 @@ namespace FB {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     class PluginCore : public PluginEventSink
     {
-    protected:
+    public:
+        static int getActivePluginCount() { return ActivePluginCount; }
+        static std::string& getOS() { return OS; }
+        static std::string& getBrowser() { return Browser; }
+    private:
         static volatile int ActivePluginCount;
 
         static std::string OS;
@@ -120,7 +124,10 @@ namespace FB {
         /// @param  host    The boost::shared_ptr<BrowserHost> to the BrowserHost object for the current
         ///                 browser. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void SetHost(FB::BrowserHostPtr);
+        virtual void SetHost(const FB::BrowserHostPtr& host)
+        {
+            m_host = host;
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual PluginWindow* PluginCore::GetWindow() const
@@ -129,7 +136,10 @@ namespace FB {
         ///
         /// @return null if it fails, else the window. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindow* GetWindow() const;
+        virtual PluginWindow* GetWindow() const
+        {
+            return m_Window;
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void PluginCore::SetWindow(PluginWindow *)
@@ -210,7 +220,14 @@ namespace FB {
         ///
         /// @return The root jsapi. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual JSAPIPtr getRootJSAPI();
+        virtual JSAPIPtr getRootJSAPI()
+        {
+            if (!m_api) {
+                m_api = createJSAPI();
+            }
+
+            return m_api;
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual bool PluginCore::isWindowless() = 0

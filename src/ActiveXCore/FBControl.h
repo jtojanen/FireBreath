@@ -22,6 +22,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <atlctl.h>
 #include <ShlGuid.h>
 #include <boost/cast.hpp>
+#include <boost/scoped_array.hpp>
 #include "DOM/Window.h"
 #include "FactoryBase.h"
 #include "logging.h"
@@ -117,6 +118,9 @@ namespace FB {
             // access to the DOM Document and Window
             STDMETHOD(SetClientSite)(IOleClientSite *pClientSite);
 
+            // This method will only be called if we are instantiated without a window
+            STDMETHOD(SetSite)(IUnknown *pUnkSite);
+
             STDMETHOD(SetObjectRects)(LPCRECT prcPos, LPCRECT prcClip);
             STDMETHOD(InPlaceActivate)(LONG iVerb, const RECT* prcPosRect);
 	
@@ -210,7 +214,7 @@ namespace FB {
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
         HRESULT FB::ActiveX::CFBControl<pFbCLSID, pMT, ICurObjInterface, piid, plibid>::OnDraw( ATL_DRAWINFO& di )
         {
-            if (m_bWndLess && FB::pluginGuiEnabled()) {
+            if (pluginWin && m_bWndLess && FB::pluginGuiEnabled()) {
                 HRESULT lRes(0);
                 PluginWindowlessWin* win = static_cast<PluginWindowlessWin*>(pluginWin);
                 win->setWindowPosition(
@@ -238,11 +242,39 @@ namespace FB {
             return INTERFACESAFE_FOR_UNTRUSTED_CALLER | INTERFACESAFE_FOR_UNTRUSTED_DATA/* | INTERFACE_USES_DISPEX*/;
         }
 
+
+        template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
+        STDMETHODIMP CFBControl<pFbCLSID, pMT,ICurObjInterface,piid,plibid>::SetSite(IUnknown *pUnkSite)
+        {
+            HRESULT hr = IObjectWithSiteImpl<CFBControl<pFbCLSID,pMT,ICurObjInterface,piid,plibid> >::SetSite(pUnkSite);
+            if (!pUnkSite || !pluginMain) {
+                m_webBrowser.Release();
+                m_serviceProvider.Release();
+                if (m_host)
+                    m_host->shutdown();
+                m_host.reset();
+                return hr;
+            }
+            m_serviceProvider = pUnkSite;
+            if (!m_serviceProvider)
+                return E_FAIL;
+            m_serviceProvider->QueryService(SID_SWebBrowserApp, IID_IWebBrowser2, reinterpret_cast<void**>(&m_webBrowser));
+
+            if (m_webBrowser) {
+                m_propNotify = m_spClientSite;
+            }
+
+            // There will be no window this time!
+            clientSiteSet();
+            setReady();
+            return S_OK;
+        }
+
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
         STDMETHODIMP CFBControl<pFbCLSID, pMT,ICurObjInterface,piid,plibid>::SetClientSite( IOleClientSite *pClientSite )
         {
             HRESULT hr = IOleObjectImpl<CFBControlX>::SetClientSite (pClientSite);
-            if (!pClientSite) {
+            if (!pClientSite || !pluginMain) {
                 m_webBrowser.Release();
                 m_serviceProvider.Release();
                 if (m_host)
@@ -286,7 +318,7 @@ namespace FB {
             if (hr != S_OK)
                 return hr;
 
-            if (pluginWin || !FB::pluginGuiEnabled()) {
+            if (pluginWin || !FB::pluginGuiEnabled() || !pluginMain) {
                 // window already created or gui disabled
                 return hr;
             }

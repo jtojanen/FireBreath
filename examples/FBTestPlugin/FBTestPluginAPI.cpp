@@ -47,10 +47,12 @@ FBTestPluginAPI::FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::Bro
     registerMethod("createThreadRunner", make_method(this, &FBTestPluginAPI::createThreadRunner));
     registerMethod("optionalTest", make_method(this, &FBTestPluginAPI::optionalTest));
     registerMethod("getURL", make_method(this, &FBTestPluginAPI::getURL));
+	registerMethod("postURL", make_method(this, &FBTestPluginAPI::postURL));
      
     registerMethod(L"скажи",  make_method(this, &FBTestPluginAPI::say));
     
     registerMethod("addWithSimpleMath", make_method(this, &FBTestPluginAPI::addWithSimpleMath));
+    registerMethod("createSimpleMath", make_method(this, &FBTestPluginAPI::createSimpleMath));
 
     registerMethod("countArrayLength",  make_method(this, &FBTestPluginAPI::countArrayLength));
     // Read-write property
@@ -255,7 +257,7 @@ FB::VariantMap FBTestPluginAPI::getUserData()
     return map;
 }
 
-boost::shared_ptr<SimpleMathAPI> FBTestPluginAPI::get_simpleMath()
+boost::weak_ptr<SimpleMathAPI> FBTestPluginAPI::get_simpleMath()
 {
     return m_simpleMath;
 }
@@ -288,6 +290,8 @@ std::string FBTestPluginAPI::get_pluginPath()
 
 long FBTestPluginAPI::countArrayLength(const FB::JSObjectPtr &jso) 
 {
+    if (!jso)
+        throw FB::invalid_arguments();
     if (!jso->HasProperty("getArray"))
         throw FB::invalid_arguments();
     FB::VariantList array = jso->GetProperty("getArray").cast<FB::VariantList>();
@@ -308,6 +312,12 @@ void FBTestPluginAPI::getURL(const std::string& url, const FB::JSObjectPtr& call
 {
     FB::SimpleStreamHelper::AsyncGet(m_host, FB::URI::fromString(url),
         boost::bind(&FBTestPluginAPI::getURLCallback, this, callback, _1, _2, _3, _4));
+}
+
+void FBTestPluginAPI::postURL(const std::string& url, const std::string& postdata, const FB::JSObjectPtr& callback)
+{
+	FB::SimpleStreamHelper::AsyncPost(m_host, FB::URI::fromString(url), postdata,
+		boost::bind(&FBTestPluginAPI::getURLCallback, this, callback, _1, _2, _3, _4));
 }
 
 void FBTestPluginAPI::getURLCallback(const FB::JSObjectPtr& callback, bool success,
@@ -343,5 +353,11 @@ const boost::optional<std::string> FBTestPluginAPI::optionalTest( const std::str
     else
         m_host->htmlLog("No string passed in!");
     return str;
+}
+
+boost::shared_ptr<SimpleMathAPI> FBTestPluginAPI::createSimpleMath()
+{
+    // Create a new simplemath object each time
+    return boost::make_shared<SimpleMathAPI>(m_host);
 }
 

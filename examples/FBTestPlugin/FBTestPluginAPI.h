@@ -44,7 +44,9 @@ public:
     // Read-only property someInt
     long get_someInt();
 
-    boost::shared_ptr<SimpleMathAPI> get_simpleMath();
+    boost::weak_ptr<SimpleMathAPI> get_simpleMath();
+
+    boost::shared_ptr<SimpleMathAPI> createSimpleMath();
   
     FB::variant echo(const FB::variant& a);
 
@@ -79,6 +81,7 @@ public:
     void eval(std::string str);
     long addWithSimpleMath(const boost::shared_ptr<SimpleMathAPI>& jso, long a, long b);
     void getURL(const std::string& url, const FB::JSObjectPtr& callback);
+	void postURL(const std::string& url, const std::string& postdata, const FB::JSObjectPtr& callback);
     void getURLCallback(const FB::JSObjectPtr& callback, bool success, const FB::HeaderMap& headers,
         const boost::shared_array<uint8_t>& data, const size_t size);
 

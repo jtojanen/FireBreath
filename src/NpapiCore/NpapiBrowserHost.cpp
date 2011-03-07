@@ -163,12 +163,25 @@ void FB::Npapi::NpapiBrowserHost::deferred_release( NPObject* obj )
     }
 }
 
+bool isExpired(std::pair<void*, FB::Npapi::NPObjectWeakRef> cur) {
+    return cur.second.expired();
+}
+
 void FB::Npapi::NpapiBrowserHost::DoDeferredRelease() const
 {
     assertMainThread();
     NPObject* cur(NULL);
     while (m_deferredObjects.try_pop(cur)) {
         ReleaseObject(cur);
+    }
+    // Also remove any expired IDispatch WeakReferences
+    NPObjectRefMap::iterator iter = m_cachedNPObject.begin();
+    NPObjectRefMap::iterator endIter = m_cachedNPObject.end();
+    while (iter != endIter) {
+        if (isExpired(*iter))
+            m_cachedNPObject.erase(iter++);
+        else
+            ++iter;
     }
 }
 
@@ -661,3 +674,55 @@ FB::BrowserStreamPtr NpapiBrowserHost::_createStream(const std::string& url, con
     return stream;
 }
 
+FB::BrowserStreamPtr NpapiBrowserHost::_createPostStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+                                    const std::string& postdata, bool cache, bool seekable, size_t internalBufferSize ) const
+{
+    NpapiStreamPtr stream( boost::make_shared<NpapiStream>( url, cache, seekable, internalBufferSize, FB::ptr_cast<const NpapiBrowserHost>(shared_from_this()) ) );
+    stream->AttachObserver( callback );
+
+	// Add custom headers before data to post!
+	std::stringstream headers;
+	headers << "Content-type: application/x-www-form-urlencoded\n";
+	headers << "Content-Length: " << postdata.length() << "\n\n";	
+	headers << postdata;
+
+    // always use target = 0 for now
+    if ( PostURLNotify( url.c_str(), 0, headers.str().length(), headers.str().c_str(), false, stream.get() ) == NPERR_NO_ERROR )
+    {
+        stream->setCreated();
+        StreamCreatedEvent ev(stream.get());
+        stream->SendEvent( &ev );
+    }
+    else
+    {
+        stream.reset();
+    }
+    return stream;
+}
+NPJavascriptObject* FB::Npapi::NpapiBrowserHost::getJSAPIWrapper( const FB::JSAPIWeakPtr& api, bool autoRelease/* = false*/ )
+{
+    assertMainThread(); // This should only be called on the main thread
+    typedef boost::shared_ptr<FB::ShareableReference<NPJavascriptObject> > SharedNPObjectRef;
+    NPJavascriptObject* ret(NULL);
+    FB::JSAPIPtr ptr(api.lock());
+    if (!ptr)
+        return NPJavascriptObject::NewObject(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), api, false);
+
+    NPObjectRefMap::iterator fnd = m_cachedNPObject.find(ptr.get());
+    if (fnd != m_cachedNPObject.end()) {
+        SharedNPObjectRef ref(fnd->second.lock());
+        if (ref) {
+            // Fortunately this doesn't have to be threadsafe since this method only gets called
+            // from the main thread and the browser access happens on that thread as well!
+            ret = ref->getPtr();
+            RetainObject(ret);
+        } else {
+            m_cachedNPObject.erase(fnd);
+        }
+    }
+    if (!ret) {
+        ret = NPJavascriptObject::NewObject(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), api, true);
+        m_cachedNPObject[ptr.get()] = ret->getWeakReference();
+    }
+    return ret;
+}

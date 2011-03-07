@@ -34,11 +34,21 @@ namespace FB { namespace Npapi {
         FB::JSAPIWeakPtr m_api;
         NpapiBrowserHostPtr m_browser;
         bool m_valid;
+        bool m_autoRelease;
+        boost::shared_ptr<FB::ShareableReference< NPJavascriptObject > > m_sharedRef;
 
     public:
-        static NPJavascriptObject *NewObject(NpapiBrowserHostPtr host, FB::JSAPIWeakPtr api);
+        static NPJavascriptObject *NewObject(NpapiBrowserHostPtr host, FB::JSAPIWeakPtr api, bool auto_release = false);
         void setAPI(FB::JSAPIWeakPtr api, NpapiBrowserHostPtr host);
-        FB::JSAPIPtr getAPI() const;
+        FB::JSAPIPtr getAPI() const
+        {
+            FB::JSAPIPtr ptr(m_api.lock());
+            if (!ptr)
+                throw std::bad_cast();
+            return ptr;
+        }
+        const boost::shared_ptr<FB::ShareableReference< NPJavascriptObject > > getWeakReference() { return m_sharedRef; }
+
         virtual ~NPJavascriptObject(void);
 
     private:
