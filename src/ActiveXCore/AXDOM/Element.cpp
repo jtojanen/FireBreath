@@ -13,59 +13,105 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
 #include "Element.h"
+#include "IDispatchAPI.h"
 
-using namespace FB::ActiveX::AXDOM;
+#include <string>
+#include <vector>
 
-Element::Element(const FB::JSObjectPtr& element, IWebBrowser *web)
-    : FB::ActiveX::AXDOM::Node(element, web), FB::DOM::Node(element), FB::DOM::Element(element),
-      m_axDisp(FB::ptr_cast<IDispatchAPI>(element)->getIDispatch()), m_webBrowser(web)
+// TODO(jtojanen): CComPtr and CComQIPtr
+#include <atlcomcli.h>
+
+// TODO(jtojanen): temporary addition, win_common.h is the right place for this
+#include <comdef.h>
+
+namespace FB
 {
-    if (!m_axDisp)
-        throw std::bad_cast("This is not a valid object");
-}
+    namespace ActiveX
+    {
+        namespace AXDOM
+        {
+            Element::Element(
+                const FB::JSObjectPtr& element, IWebBrowser* web) : \
+                Node(element, web),
+                FB::DOM::Node(element),
+                FB::DOM::Element(element),
+                dispatch_(FB::ptr_cast<IDispatchAPI>(element)->getIDispatch())
+            {
+                if (!dispatch_) {
+                    throw std::bad_cast("This is not a valid object");
+                }
+            }
 
-Element::~Element()
-{
-}
+            Element::~Element()
+            {
+                if (dispatch_) {
+                    dispatch_->Release();
+                    dispatch_ = NULL;
+                }
+            }
 
-std::vector<FB::DOM::ElementPtr> Element::getElementsByTagName(const std::string& tagName) const
-{
-    CComQIPtr<IHTMLElement2> elem(m_axDisp);
-    CComQIPtr<IHTMLDocument3> doc(m_axDisp);
-    CComPtr<IHTMLElementCollection> list;
-    std::vector<FB::DOM::ElementPtr> tagList;
-    CComBSTR tName(FB::utf8_to_wstring(tagName).c_str());
-    if (elem) {
-        elem->getElementsByTagName(tName, &list);
-    } else if (doc) {
-        doc->getElementsByTagName(tName, &list);
-    } else {
-        throw std::runtime_error("Could not get element by tag name");
-    }
-    long length(0);
-    if (SUCCEEDED(list->get_length(&length))) {
-        for (long i = 0; i < length; i++) {
-            CComPtr<IDispatch> dispObj;
-            CComVariant idx(i);
-            list->item(idx, idx, &dispObj);
-			FB::JSObjectPtr obj(IDispatchAPI::create(dispObj, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host)));
-            tagList.push_back(FB::DOM::Element::create(obj));
-        }
-    }
-    return tagList;
-}
+            std::vector<FB::DOM::ElementPtr> Element::getElementsByTagName(
+                const std::string& tagName) const
+            {
+                HRESULT hr = E_FAIL;
+                CComPtr<IHTMLElementCollection> list;
+                _bstr_t name(FB::utf8_to_wstring(tagName).c_str());
 
-std::string FB::ActiveX::AXDOM::Element::getStringAttribute( const std::string& attr ) const
-{
-    CComQIPtr<IHTMLElement> elem(m_axDisp);
-    CComQIPtr<IHTMLDocument5> doc(m_axDisp);
-    CComVariant var;
-    HRESULT hr = S_OK;
-    if (elem) {
-        hr = elem->getAttribute(CComBSTR(FB::utf8_to_wstring(attr).c_str()), 0, &var);
-        return FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host)->getVariant(&var).convert_cast<std::string>();
-    } else {
-        return getProperty<std::string>(attr);
-    }
-}
+                CComQIPtr<IHTMLElement2> element2(dispatch_);
+                if (element2) {
+                    hr = element2->getElementsByTagName(name, &list);
+                }
+                if (FAILED(hr)) {
+                    CComQIPtr<IHTMLDocument3> document3(dispatch_);
+                    if (document3) {
+                        hr = document3->getElementsByTagName(name, &list);
+                    }
+                }
+                if (FAILED(hr)) {
+                     throw std::runtime_error(
+                         "Could not get element by tag name");
+                }
 
+                long length = 0;
+                std::vector<FB::DOM::ElementPtr> tagList;
+                if (SUCCEEDED(list->get_length(&length))) {
+                    ActiveXBrowserHostPtr host(
+                        FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
+                    for (long i = 0; i < length; i++) {
+                        CComPtr<IDispatch> dispObj;
+                        _variant_t idx(i);
+                        list->item(idx, idx, &dispObj);
+                        FB::JSObjectPtr obj(
+                            IDispatchAPI::create(dispObj, host));
+                        tagList.push_back(FB::DOM::Element::create(obj));
+                    }
+                }
+
+                return tagList;
+            }
+
+            std::string Element::getStringAttribute(
+                const std::string& attr) const
+            {
+                CComQIPtr<IHTMLElement> element(dispatch_);
+                if (!element) {
+                    return getProperty<std::string>(attr);
+                }
+
+                _variant_t value;
+                const std::wstring name(FB::utf8_to_wstring(attr));
+                HRESULT hr = element->getAttribute(
+                    _bstr_t(name.c_str()), 0, &value);
+                if (FAILED(hr)) {
+                    // TODO(jtojanen): could/should we throw exception?
+                    return std::string();
+                }
+
+                ActiveXBrowserHostPtr host(
+                    FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
+                FB::variant variant(host->getVariant(&value));
+                return variant.convert_cast<std::string>();
+            }
+        }  // namespace AXDOM
+    }  // namespace ActiveX
+}  // namespace FB

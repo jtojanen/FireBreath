@@ -15,66 +15,125 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 #include "IDispatchAPI.h"
 #include "DOM/Window.h"
 #include "DOM/Element.h"
-
 #include "Document.h"
 
-using namespace FB::ActiveX::AXDOM;
+#include <string>
+#include <vector>
 
-Document::Document(const FB::JSObjectPtr& obj, IWebBrowser2 *web)
-    : FB::ActiveX::AXDOM::Element(obj, web), FB::ActiveX::AXDOM::Node(obj, web), FB::DOM::Node(obj), FB::DOM::Element(obj),
-      m_htmlDoc(FB::ptr_cast<IDispatchAPI>(obj)->getIDispatch()), m_webBrowser(web), FB::DOM::Document(obj)
+// TODO(jtojanen): CComPtr and CComQIPtr
+#include <atlcomcli.h>
+
+// TODO(jtojanen): temporary addition, win_common.h is the right place for this
+#include <comdef.h>
+
+namespace FB
 {
-}
+    namespace ActiveX
+    {
+        namespace AXDOM
+        {
+            Document::Document(
+                const FB::JSObjectPtr& obj, IWebBrowser* web) : \
+                Element(obj, web),
+                Node(obj, web),
+                FB::DOM::Document(obj),
+                FB::DOM::Element(obj),
+                FB::DOM::Node(obj),
+                htmlDocument2_(NULL)
+            {
+                IDispatch* dispatch =
+                    FB::ptr_cast<IDispatchAPI>(obj)->getIDispatch();
+                if (dispatch) {
+                    dispatch->QueryInterface(__uuidof(IHTMLDocument2),
+                        reinterpret_cast<void**>(&htmlDocument2_));
+                }
+                if (!htmlDocument2_) {
+                    throw std::bad_cast("This is not a valid Document object");
+                }
+            }
 
-Document::~Document()
-{
-}
+            Document::~Document()
+            {
+                if (htmlDocument2_) {
+                    htmlDocument2_->Release();
+                    htmlDocument2_ = NULL;
+                }
+            }
 
-FB::DOM::WindowPtr Document::getWindow() const
-{
-    CComQIPtr<IHTMLWindow2> htmlWin;
-    m_htmlDoc->get_parentWindow(&htmlWin);
-    CComQIPtr<IDispatch> windowDisp(htmlWin);
-	FB::JSObjectPtr api(IDispatchAPI::create(htmlWin, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host)));
+            FB::DOM::WindowPtr Document::getWindow() const
+            {
+                CComPtr<IHTMLWindow2> htmlWin;
+                HRESULT hr = htmlDocument2_->get_parentWindow(&htmlWin);
+                if (FAILED(hr)) {
+                    // TODO(jtojanen): should this throw exception?
+                    return FB::DOM::WindowPtr();
+                }
 
-    return FB::DOM::Window::create(api);
-}
+                ActiveXBrowserHostPtr host(
+                    FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
+                FB::JSObjectPtr api(IDispatchAPI::create(htmlWin, host));
+                return FB::DOM::Window::create(api);
+            }
 
-std::vector<FB::DOM::ElementPtr> Document::getElementsByTagName(const std::string& tagName) const
-{
-    CComQIPtr<IHTMLDocument3> doc(m_htmlDoc);
-    CComPtr<IHTMLElementCollection> list;
-    std::vector<FB::DOM::ElementPtr> tagList;
-    CComBSTR tName(FB::utf8_to_wstring(tagName).c_str());
-    if (doc) {
-        doc->getElementsByTagName(tName, &list);
-    } else {
-        throw std::runtime_error("Could not get element by tag name");
-    }
-    long length(0);
-    if (SUCCEEDED(list->get_length(&length))) {
-        for (long i = 0; i < length; i++) {
-            CComPtr<IDispatch> dispObj;
-            CComVariant idx(i);
-            list->item(idx, idx, &dispObj);
-			FB::JSObjectPtr obj(IDispatchAPI::create(dispObj, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host)));
-            tagList.push_back(FB::DOM::Element::create(obj));
-        }
-    }
-    return tagList;
-}
+            std::vector<FB::DOM::ElementPtr> Document::getElementsByTagName(
+                const std::string& tagName) const
+            {
+                CComQIPtr<IHTMLDocument3> htmlDocument3(htmlDocument2_);
+                if (!htmlDocument3) {
+                    throw std::runtime_error(
+                        "Could not get element by tag name");
+                }
+
+                CComPtr<IHTMLElementCollection> list;
+                std::vector<FB::DOM::ElementPtr> tagList;
+                const std::wstring name(FB::utf8_to_wstring(tagName));
+                HRESULT hr = htmlDocument3->getElementsByTagName(
+                    _bstr_t(name.c_str()), &list);
+                if (FAILED(hr)) {
+                    // TODO(jtojanen): should this throw exception?
+                    return tagList;
+                }
+
+                long length = 0;
+                if (SUCCEEDED(hr = list->get_length(&length))) {
+                    ActiveXBrowserHostPtr host(
+                        FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
+                    for (long i = 0; i < length; ++i) {
+                        _variant_t idx(i);
+                        CComPtr<IDispatch> dispObj;
+                        list->item(idx, idx, &dispObj);
+                        FB::JSObjectPtr obj(
+                            IDispatchAPI::create(dispObj, host));
+                        tagList.push_back(FB::DOM::Element::create(obj));
+                    }
+                }
+
+                return tagList;
+            }
 
 
-FB::DOM::ElementPtr Document::getElementById(const std::string& elem_id) const
-{
-    CComQIPtr<IHTMLDocument3> doc3(m_htmlDoc);
-    if (!doc3) {
-        throw std::exception("Document does not support getElementById");
-    }
-    CComPtr<IHTMLElement> el(NULL);
-    doc3->getElementById(CComBSTR(FB::utf8_to_wstring(elem_id).c_str()), &el);
-    CComQIPtr<IDispatch> disp(el);
-	FB::JSObjectPtr ptr(IDispatchAPI::create(disp, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host)));
-    return FB::DOM::Element::create(ptr);
-}
+            FB::DOM::ElementPtr Document::getElementById(
+                const std::string& elem_id) const
+            {
+                CComQIPtr<IHTMLDocument3> htmlDocument3(htmlDocument2_);
+                if (!htmlDocument3) {
+                    throw std::exception(
+                        "Document does not support getElementById");
+                }
 
+                CComPtr<IHTMLElement> element;
+                const std::wstring id(FB::utf8_to_wstring(elem_id));
+                HRESULT hr = htmlDocument3->getElementById(
+                    _bstr_t(id.c_str()), &element);
+                if (FAILED(hr)) {
+                    return FB::DOM::ElementPtr();
+                }
+
+                ActiveXBrowserHostPtr host(
+                    FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
+                FB::JSObjectPtr ptr(IDispatchAPI::create(element, host));
+                return FB::DOM::Element::create(ptr);
+            }
+        }  // namespace AXDOM
+    }  // namespace ActiveX
+}  // namespace FB

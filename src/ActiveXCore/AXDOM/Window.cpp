@@ -3,56 +3,96 @@ Original Author: Richard Bateman (taxilian)
 
 Created:    Sep 21, 2010
 License:    Dual license model; choose one of two:
-            New BSD License
-            http://www.opensource.org/licenses/bsd-license.php
-            - or -
-            GNU Lesser General Public License, version 2.1
-            http://www.gnu.org/licenses/lgpl-2.1.html
+New BSD License
+http://www.opensource.org/licenses/bsd-license.php
+- or -
+GNU Lesser General Public License, version 2.1
+http://www.gnu.org/licenses/lgpl-2.1.html
 
 Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
 #include "Document.h"
 #include "IDispatchAPI.h"
-
 #include "Window.h"
 
-using namespace FB::ActiveX::AXDOM;
+#include <string>
 
-Window::Window(FB::JSObjectPtr obj, IWebBrowser2 *web)
-    : FB::ActiveX::AXDOM::Node(obj, web), FB::DOM::Window(obj), FB::DOM::Node(obj),
-    m_webBrowser(web), m_htmlWin(FB::ptr_cast<IDispatchAPI>(obj)->getIDispatch())
+// TODO(jtojanen): CComPtr and CComQIPtr
+#include <atlcomcli.h>
+
+// TODO(jtojanen): temporary addition, win_common.h is the right place for this
+#include <comdef.h>
+
+namespace FB
 {
-    if (!m_htmlWin) {
-        throw new std::bad_cast("This is not a valid Window object");
-    }
-}
+    namespace ActiveX
+    {
+        namespace AXDOM
+        {
+            Window::Window(const FB::JSObjectPtr& obj, IWebBrowser* web) : \
+                Node(obj, web), FB::DOM::Window(obj), FB::DOM::Node(obj),
+                htmlWindow2_(NULL)
+            {
+                IDispatch* dispatch =
+                    FB::ptr_cast<IDispatchAPI>(obj)->getIDispatch();
+                if (dispatch) {
+                    dispatch->QueryInterface(__uuidof(IHTMLWindow2),
+                        reinterpret_cast<void**>(htmlWindow2_));
+                }
+                if (!htmlWindow2_) {
+                    throw std::bad_cast("This is not a valid Window object");
+                }
+            }
 
-Window::~Window()
-{
-}
+            Window::~Window()
+            {
+                if (htmlWindow2_) {
+                    htmlWindow2_->Release();
+                    htmlWindow2_ = NULL;
+                }
+            }
 
-FB::DOM::DocumentPtr Window::getDocument() const
-{
-    CComPtr<IHTMLDocument2> htmlDoc;
-    m_htmlWin->get_document(&htmlDoc);
-    CComQIPtr<IDispatch> htmlDocDisp(htmlDoc);
-	FB::JSObjectPtr docAPI(IDispatchAPI::create(htmlDocDisp, FB::ptr_cast<ActiveXBrowserHost>(this->m_element->host)));
-    return FB::DOM::Document::create(docAPI);
-}
+            FB::DOM::DocumentPtr Window::getDocument() const
+            {
+                CComPtr<IHTMLDocument2> document2;
+                HRESULT hr = htmlWindow2_->get_document(&document2);
+                if (FAILED(hr)) {
+                    // TODO(jtojanen): could/should we throw exception
+                    return FB::DOM::DocumentPtr();
+                }
 
-void Window::alert(const std::string& str) const
-{
-    m_htmlWin->alert(CComBSTR(FB::utf8_to_wstring(str).c_str()));
-}
+                ActiveXBrowserHostPtr host(
+                    FB::ptr_cast<ActiveXBrowserHost>(
+                    this->getJSObject()->host));
+                FB::JSObjectPtr api(IDispatchAPI::create(document2, host));
+                return FB::DOM::Document::create(api);
+            }
 
-std::string Window::getLocation() const
-{
-    CComBSTR bstr;
-    //m_webBrowser->get_LocationURL(&bstr);
-    CComPtr<IHTMLLocation> location;
-    m_htmlWin->get_location(&location);
-    location->get_href(&bstr);
-    return FB::wstring_to_utf8(std::wstring(bstr.m_str));
-}
+            void Window::alert(const std::string& str) const
+            {
+                std::wstring message(FB::utf8_to_wstring(str));
+                htmlWindow2_->alert(_bstr_t(message.c_str()));
+            }
 
+            std::string Window::getLocation() const
+            {
+                CComPtr<IHTMLLocation> location;
+                HRESULT hr = htmlWindow2_->get_location(&location);
+                if (FAILED(hr)) {
+                    // TODO(jtojanen): could/should we throw exception
+                    return std::string();
+                }
+
+                _bstr_t href;
+                if (FAILED(hr = location->get_href(href.GetAddress()))) {
+                    // TODO(jtojanen): could/should we throw exception
+                    return std::string();
+                }
+
+                std::wstring tmp(href);
+                return FB::wstring_to_utf8(tmp);
+            }
+        }  // namespace AXDOM
+    }  // namespace ActiveX
+}  // namespace FB

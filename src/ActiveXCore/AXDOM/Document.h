@@ -12,51 +12,65 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
-#pragma once
 #ifndef H_AXDOM_DOCUMENT
 #define H_AXDOM_DOCUMENT
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1020)
+#pragma once
+#endif
+
 #include <string>
-#include "win_common.h"
-#include <atlctl.h>
-#include "JSObject.h"
-#include "Element.h"
+#include <vector>
+#include "./Element.h"
 #include "DOM/Document.h"
 #include "DOM/Element.h"
+#include "JSObject.h"
+#include "win_common.h"
 
-#ifdef _WIN32
+#if defined(_MSC_VER)
 #pragma warning(push)
-#pragma warning( disable : 4250 )
+#pragma warning(disable : 4250)
 #endif
-namespace FB { namespace ActiveX {
-    namespace AXDOM {
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @class  Document
-        ///
-        /// @brief  ActiveX specific implementation of DOM::Document
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        class Document : public virtual FB::ActiveX::AXDOM::Element, public virtual FB::DOM::Document
+// forward declarations
+struct IHTMLDocument2;
+
+namespace FB
+{
+    namespace ActiveX
+    {
+        namespace AXDOM
         {
-        public:
-            Document(const FB::JSObjectPtr &element, IWebBrowser2 *web);
-            virtual ~Document();
+            ///////////////////////////////////////////////////////////////////
+            /// @class  Document
+            ///
+            /// @brief  ActiveX specific implementation of DOM::Document
+            ///////////////////////////////////////////////////////////////////
+            class Document :
+                public virtual Element,
+                public virtual FB::DOM::Document
+            {
+            public:
+                Document(
+                    const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                virtual ~Document();
 
-        public:
-            virtual FB::DOM::WindowPtr getWindow() const;
-            virtual FB::DOM::ElementPtr getElementById(const std::string& elem_id) const;
-            virtual std::vector<FB::DOM::ElementPtr> getElementsByTagName(const std::string& tagName) const;
+                FB::DOM::WindowPtr getWindow() const;
+                FB::DOM::ElementPtr getElementById(
+                    const std::string& elementId) const;
+                std::vector<FB::DOM::ElementPtr> getElementsByTagName(
+                    const std::string& tagName) const;
 
-        protected:
-            CComQIPtr<IWebBrowser> m_webBrowser;
-            CComQIPtr<IHTMLDocument2> m_htmlDoc;
-        };
+            private:
+                IHTMLDocument2* htmlDocument2_;
+            };
+        }
+    }
+}
 
-    };
-} }
-#ifdef _WIN32
+#if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
 
-#endif // H_AXDOM_DOCUMENT
+#endif  // H_AXDOM_DOCUMENT
 

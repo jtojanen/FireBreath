@@ -12,43 +12,53 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
-#pragma once
 #ifndef H_AXDOM_ELEMENT
 #define H_AXDOM_ELEMENT
 
-#include "win_common.h"
-#include <atlctl.h>
+#if defined(_MSC_VER) && (_MSC_VER >= 1020)
+#pragma once
+#endif
+
 #include <string>
-#include <boost/lexical_cast.hpp>
-#include "IDispatchAPI.h"
-#include "JSObject.h"
-#include "Node.h"
+#include <vector>
+#include "./Node.h"
 #include "DOM/Element.h"
+#include "JSObject.h"
+#include "win_common.h"
 
-namespace FB { namespace ActiveX {
-    namespace AXDOM {
+// forward declarations
+struct IDispatch;
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @class  Element
-        ///
-        /// @brief  ActiveX specific implementation of DOM::Element
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        class Element : public virtual FB::ActiveX::AXDOM::Node, public virtual FB::DOM::Element
+namespace FB
+{
+    namespace ActiveX
+    {
+        namespace AXDOM
         {
-        public:
-            Element(const FB::JSObjectPtr& element, IWebBrowser *web);
-            virtual ~Element();
+            ///////////////////////////////////////////////////////////////////
+            /// @class  Element
+            ///
+            /// @brief  ActiveX specific implementation of DOM::Element
+            ///////////////////////////////////////////////////////////////////
+            class Element :
+                public virtual Node,
+                public virtual FB::DOM::Element
+            {
+            public:
+                Element(
+                    const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                virtual ~Element();
 
-            virtual std::vector<FB::DOM::ElementPtr> getElementsByTagName(const std::string& tagName) const;
-            virtual std::string getStringAttribute(const std::string& attr) const;
+                std::vector<FB::DOM::ElementPtr> getElementsByTagName(
+                    const std::string& tagName) const;
+                std::string getStringAttribute(const std::string& attr) const;
 
-        public:
-            CComQIPtr<IDispatch> m_axDisp;
-            CComPtr<IWebBrowser> m_webBrowser;
-        };
+            private:
+                IDispatch* dispatch_;
+            };
+        }
+    }
+}
 
-    };
-} }
-
-#endif // H_AXDOM_ELEMENT
+#endif  // H_AXDOM_ELEMENT
 

@@ -12,45 +12,44 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
-#pragma once
 #ifndef H_AXDOM_NODE
 #define H_AXDOM_NODE
 
-#include <string>
-#include "win_common.h"
-#include <atlctl.h>
-#include "IDispatchAPI.h"
-#include "JSObject.h"
+#if defined(_MSC_VER) && (_MSC_VER >= 1020)
+#pragma once
+#endif
+
 #include "DOM/Node.h"
+#include "win_common.h"
 
-namespace FB { namespace ActiveX {
-    namespace AXDOM {
-        class Node;
-        typedef boost::shared_ptr<Node> NodePtr;
+// forward declarations
+struct IWebBrowser;
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @class  Node
-        ///
-        /// @brief  Provides an ActiveX specific implementation of DOM::Node
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        class Node : public virtual FB::DOM::Node
+namespace FB
+{
+    namespace ActiveX
+    {
+        namespace AXDOM
         {
-        public:
-            Node(const FB::JSObjectPtr& element, IWebBrowser *web)
-                : m_axNode(FB::ptr_cast<IDispatchAPI>(element)->getIDispatch()),
-                  m_webBrowser(web), FB::DOM::Node(element)
+            ///////////////////////////////////////////////////////////////////
+            /// @class  Node
+            ///
+            /// @brief  ActiveX specific implementation of DOM::Node
+            ///////////////////////////////////////////////////////////////////
+            class Node : public virtual FB::DOM::Node
             {
-            }
-            virtual ~Node() { }
+            public:
+                Node(const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                virtual ~Node();
 
-        public:
+            private:
+                IWebBrowser* webBrowser_;
+            };
 
-        protected:
-            CComQIPtr<IHTMLDOMNode> m_axNode;
-            CComPtr<IWebBrowser> m_webBrowser;
-        };
+            typedef boost::shared_ptr<Node> NodePtr;
+        }
+    }
+}
 
-    };
-} }
-#endif // H_AXDOM_NODE
+#endif  // H_AXDOM_NODE
 
