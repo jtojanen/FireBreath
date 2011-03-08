@@ -27,8 +27,6 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS  // some CString constructors will be explicit
 
 #include <atlbase.h>
-#include <atlcom.h>
-#include <atlctl.h>
 #include <dispex.h>
 
 using namespace ATL;

@@ -13,7 +13,6 @@ Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
 #include "axutil.h"
-#include "atlstr.h"
 
 using namespace FB;
 using namespace FB::ActiveX;

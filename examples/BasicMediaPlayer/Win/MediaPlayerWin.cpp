@@ -19,14 +19,11 @@ Copyright 2009 Georg Fritzsche,
 #include <list>
 #include <boost/assign/list_of.hpp>
 #include <atlbase.h>
-#include <atlcom.h>
-#include <atlstr.h>
 #include <dshow.h>
 #include "JSAPI.h"
 #include "Win/PluginWindowWin.h"
 #include "../MediaPlayer.h"
 #include "error_mapping.h"
-
 
 struct PlayerContext 
 {
@@ -181,15 +178,11 @@ const std::string& MediaPlayer::lastError() const
     return m_context->error;
 }
 
-bool MediaPlayer::play(const std::string& file_)
+bool MediaPlayer::play(const std::string& file)
 {
-    HRESULT hr;
-
-    CA2W fileConversion(file_.c_str());
-    CComBSTR file(fileConversion);
-    PlayerContextPtr context = make_context(m_context->hwnd);
-
-    hr = context->spGraph->RenderFile(file, 0);
+    std::wstring tmp(FB::utf8_to_wstring(file));
+    PlayerContextPtr context(make_context(m_context->hwnd));
+    HRESULT hr = context->spGraph->RenderFile(tmp.c_str(), 0);
     if(FAILED(hr)) {
         m_context->error = vfwErrorString("IGraphBuilder::RenderFile() failed", hr);
         return false;

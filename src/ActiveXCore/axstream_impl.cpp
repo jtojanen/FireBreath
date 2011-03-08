@@ -25,6 +25,9 @@ Copyright 2010 Richard Bateman, Firebreath development team
 #include <boost\smart_ptr\scoped_array.hpp>
 #include <boost\smart_ptr\shared_array.hpp>
 
+// TODO(jtojanen): temporary addition, win_common.h is the right place for this
+#pragma comment(lib, "urlmon.lib")
+
 using namespace FB;
 using namespace FB::ActiveX;
 
