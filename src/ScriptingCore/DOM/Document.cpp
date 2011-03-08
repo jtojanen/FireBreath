@@ -12,31 +12,43 @@ License:    Dual license model; choose one of two:
 Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
-#include "variant.h"
-#include "variant_list.h"
+#include "Document.h"
 #include "Window.h"
 
-#include "Document.h"
-
-using namespace FB::DOM;
-
-Document::Document(const FB::JSObjectPtr& element) : Node(element), Element(element)
+namespace FB
 {
-}
+    namespace DOM
+    {
+        Document::Document(const FB::JSObjectPtr& element) : \
+            Element(element), Node(element)
+        {
+        }
 
-Document::~Document()
-{
-}
+        Document::~Document()
+        {
+        }
 
-WindowPtr Document::getWindow() const
-{
-    JSObjectPtr api = getProperty<FB::JSObjectPtr>("window");
-    return Window::create(api);
-}
+        DocumentPtr Document::document()
+        {
+            return boost::dynamic_pointer_cast<Document>(node());
+        }
 
-ElementPtr Document::getBody() const
-{
-    JSObjectPtr api = getProperty<FB::JSObjectPtr>("body");
-    return Element::create(api);
-}
+        // static
+        DocumentPtr Document::create(const FB::JSObjectPtr& api)
+        {
+            return api->host->_createDocument(api);
+        }
 
+        WindowPtr Document::getWindow() const
+        {
+            JSObjectPtr window(getProperty<FB::JSObjectPtr>("window"));
+            return Window::create(window);
+        }
+
+        ElementPtr Document::getBody() const
+        {
+            JSObjectPtr body(getProperty<FB::JSObjectPtr>("body"));
+            return Element::create(body);
+        }
+    }
+}

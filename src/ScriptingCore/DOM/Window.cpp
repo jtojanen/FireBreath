@@ -13,68 +13,69 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
 #include "variant_list.h"
-#include "Node.h"
 #include "Element.h"
 #include "Document.h"
-
 #include "Window.h"
 
-using namespace FB::DOM;
+#include <string>
 
-Window::Window(const FB::JSObjectPtr& element) : Node(element)
+namespace FB
 {
+    namespace DOM
+    {
+        Window::Window(const FB::JSObjectPtr& element) : Node(element)
+        {
+        }
+
+        Window::~Window()
+        {
+        }
+
+        DocumentPtr Window::getDocument() const
+        {
+            JSObjectPtr document(getProperty<JSObjectPtr>("document"));
+            return Document::create(document);
+        }
+
+        void Window::alert(const std::wstring& str) const
+        {
+            alert(FB::wstring_to_utf8(str));
+        }
+
+        void Window::alert(const std::string& str) const
+        {
+            callMethod<void>("alert", variant_list_of(str));
+        }
+
+        FB::JSObjectPtr Window::createArray() const
+        {
+            return callMethod<JSObjectPtr>("Array", FB::VariantList());
+        }
+
+        FB::JSObjectPtr Window::createMap() const
+        {
+            return callMethod<JSObjectPtr>("Object", FB::VariantList());
+        }
+
+        std::string Window::getLocation() const
+        {
+            return getNode("location")->getProperty<std::string>("href");
+        }
+
+        // FB::JSObjectPtr FB::DOM::Window::createDate( const std::string& datestring ) const
+        // {
+        //    // This is not working; I'm leaving it here in hopes that we can find a way to make it work.
+        //    // My best idea so far is to inject a help function into javascript :-/
+        //    try {
+        //        JSObjectPtr obj;
+        //        if (datestring.empty())
+        //            obj = getJSObject()->Construct("Date", FB::VariantList());
+        //        else
+        //            obj = getJSObject()->Construct("Date", FB::variant_list_of(datestring));
+        //        return obj;
+        //    } catch (...) {
+        //        return FB::JSObjectPtr();
+        //    }
+        // }
+    }
 }
-
-Window::~Window()
-{
-}
-
-DocumentPtr Window::getDocument() const
-{
-    JSObjectPtr api = getProperty<JSObjectPtr>("document");
-    return Document::create(api);
-}
-
-void Window::alert(const std::wstring& str) const
-{
-    alert(FB::wstring_to_utf8(str));
-}
-
-void Window::alert(const std::string& str) const
-{
-    callMethod<void>("alert", variant_list_of(str));
-}
-
-FB::JSObjectPtr Window::createArray() const
-{
-    JSObjectPtr arr = this->callMethod<JSObjectPtr>("Array", FB::VariantList());
-    return arr;
-}
-
-FB::JSObjectPtr Window::createMap() const
-{
-    JSObjectPtr arr = this->callMethod<JSObjectPtr>("Object", FB::VariantList());
-    return arr;
-}
-
-std::string Window::getLocation() const
-{
-    return getNode("location")->getProperty<std::string>("href");
-}
-
-//FB::JSObjectPtr FB::DOM::Window::createDate( const std::string& datestring ) const
-//{
-//    // This is not working; I'm leaving it here in hopes that we can find a way to make it work.
-//    // My best idea so far is to inject a help function into javascript :-/
-//    try {
-//        JSObjectPtr obj;
-//        if (datestring.empty())
-//            obj = getJSObject()->Construct("Date", FB::VariantList());
-//        else
-//            obj = getJSObject()->Construct("Date", FB::variant_list_of(datestring));
-//        return obj;
-//    } catch (...) {
-//        return FB::JSObjectPtr();
-//    }
-//}
-

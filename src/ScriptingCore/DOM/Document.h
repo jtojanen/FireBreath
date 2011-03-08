@@ -12,79 +12,84 @@ License:    Dual license model; choose one of two:
 Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
-#pragma once
 #ifndef H_FB_DOM_DOCUMENT
 #define H_FB_DOM_DOCUMENT
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1020)
+#pragma once
+#endif
+
 #include <string>
-#include "JSObject.h"
 #include "Element.h"
+#include "JSObject.h"
 
-namespace FB { namespace DOM {
-
-    class Document;
-    typedef boost::shared_ptr<Document> DocumentPtr;
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @class  Document
-    ///
-    /// @brief  Abstraction for accessing and manipulating a DOM Document
-    ///         
-    /// This class should not be created directly; instead, use the Document::create method
-    /// 
-    /// Most of the time you will want to call BrowserHost::getDOMDocument() to get the reference to
-    /// the containing document
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class Document : public virtual Element
+namespace FB
+{
+    namespace DOM
     {
-    public:
-        Document(const FB::JSObjectPtr &element);
-        virtual ~Document();
+        class Document;
+        typedef boost::shared_ptr<Document> DocumentPtr;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn DocumentPtr Document::document()
+        /// @class  Document
         ///
-        /// @brief  Gets a FB::DOM::DocumentPtr for the current object
+        /// @brief  Abstraction for accessing and manipulating a DOM Document
         ///
-        /// @return FB::DOM::DocumentPtr (alias to boost::shared_ptr<FB::DOM::Document>)
+        /// This class should not be created directly; instead, use the Document::create method
+        ///
+        /// Most of the time you will want to call BrowserHost::getDOMDocument() to get the reference to
+        /// the containing document
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        DocumentPtr document() { return boost::dynamic_pointer_cast<Document>(node()); }
+        class Document : public virtual Element
+        {
+        public:
+            explicit Document(const FB::JSObjectPtr& element);
+            virtual ~Document();
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn static DocumentPtr Document::create(const FB::JSObjectPtr &api)
-        ///
-        /// @brief  Creates a FB::DOM::Document object from a JSObjectPtr representing a DOM object.  This
-        ///         will probably throw an exception and definitely not work right if the DOM object
-        ///         represented is not a document
-        ///
-        /// @param  api The FB::JSObjectAPI object containing the document to wrap
-        ///
-        /// @return FB::DOM::DocumentPtr to the created Document object
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        static DocumentPtr create(const FB::JSObjectPtr &api) { return api->host->_createDocument(api); }
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            /// @fn DocumentPtr Document::document()
+            ///
+            /// @brief  Gets a FB::DOM::DocumentPtr for the current object
+            ///
+            /// @return FB::DOM::DocumentPtr (alias to boost::shared_ptr<FB::DOM::Document>)
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            DocumentPtr document();
 
-    public:
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            /// @fn static DocumentPtr Document::create(const FB::JSObjectPtr& api)
+            ///
+            /// @brief  Creates a FB::DOM::Document object from a JSObjectPtr representing a DOM object.  This
+            ///         will probably throw an exception and definitely not work right if the DOM object
+            ///         represented is not a document
+            ///
+            /// @param  api The FB::JSObjectAPI object containing the document to wrap
+            ///
+            /// @return FB::DOM::DocumentPtr to the created Document object
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            static DocumentPtr create(const FB::JSObjectPtr& api);
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual WindowPtr Document::getWindow() const
-        ///
-        /// @brief  Gets a DOM::WindowPtr for the window the document is contained in
-        ///
-        /// @return The window. 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual WindowPtr getWindow() const;
+        public:
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual ElementPtr Document::getBody() const
-        ///
-        /// @brief  Gets a DOM::ElementPtr for the document's body.
-        ///
-        /// @return The document's body.
-        ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual ElementPtr getBody() const;
-    };
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            /// @fn virtual WindowPtr Document::getWindow() const
+            ///
+            /// @brief  Gets a DOM::WindowPtr for the window the document is contained in
+            ///
+            /// @return The window.
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            virtual WindowPtr getWindow() const;
 
-}; };
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            /// @fn virtual ElementPtr Document::getBody() const
+            ///
+            /// @brief  Gets a DOM::ElementPtr for the document's body.
+            ///
+            /// @return The document's body.
+            ////////////////////////////////////////////////////////////////////////////////////////////////////
+            virtual ElementPtr getBody() const;
+        };
+    }  // namespace DOM
+}  // namespace FB
 
-#endif // H_FB_DOM_DOCUMENT
+#endif  // H_FB_DOM_DOCUMENT
 
