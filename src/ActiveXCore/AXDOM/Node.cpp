@@ -13,7 +13,6 @@ Copyright 2011 Linkotec Oy
 \**********************************************************/
 
 #include "Node.h"
-#include "IDispatchAPI.h"
 
 namespace FB
 {
@@ -21,21 +20,16 @@ namespace FB
     {
         namespace AXDOM
         {
-            Node::Node(
-                const FB::JSObjectPtr& element, IWebBrowser* webBrowser) :
-            FB::DOM::Node(element), webBrowser_(webBrowser)
+            Node::Node(const IDispatchAPIPtr& api,
+                const IWebBrowserPtr& webBrowser) : \
+                DOM::Node(api), webBrowser_(webBrowser)
             {
-                if (webBrowser_) {
-                    webBrowser_->AddRef();
-                }
+                // nothing to do
             }
 
             Node::~Node()
             {
-                if (webBrowser_) {
-                    webBrowser_->Release();
-                    webBrowser_ = NULL;
-                }
+                // nothing to do
             }
         }  // namespace AXDOM
     }  // namespace ActiveX

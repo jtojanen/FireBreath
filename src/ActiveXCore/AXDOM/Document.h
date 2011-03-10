@@ -25,7 +25,7 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 #include "DOM/Document.h"
 #include "DOM/Element.h"
 #include "JSObject.h"
-#include "win_common.h"
+#include "../com_utils.h"
 
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -41,6 +41,10 @@ namespace FB
     {
         namespace AXDOM
         {
+            typedef boost::intrusive_ptr<IHTMLDocument2> IHTMLDocument2Ptr;
+            typedef boost::intrusive_ptr<IWebBrowser> IWebBrowserPtr;
+
+
             ///////////////////////////////////////////////////////////////////
             /// @class  Document
             ///
@@ -48,21 +52,21 @@ namespace FB
             ///////////////////////////////////////////////////////////////////
             class Document :
                 public virtual Element,
-                public virtual FB::DOM::Document
+                public virtual DOM::Document
             {
             public:
-                Document(
-                    const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                Document(const IDispatchAPIPtr& api,
+                    const IWebBrowserPtr& webBrowser);
                 virtual ~Document();
 
-                FB::DOM::WindowPtr getWindow() const;
-                FB::DOM::ElementPtr getElementById(
+                DOM::WindowPtr getWindow() const;
+                DOM::ElementPtr getElementById(
                     const std::string& elementId) const;
-                std::vector<FB::DOM::ElementPtr> getElementsByTagName(
+                std::vector<DOM::ElementPtr> getElementsByTagName(
                     const std::string& tagName) const;
 
             private:
-                IHTMLDocument2* htmlDocument2_;
+                 IHTMLDocument2Ptr document2_;
             };
         }
     }

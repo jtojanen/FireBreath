@@ -12,16 +12,12 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
-#include "IDispatchAPI.h"
 #include "DOM/Window.h"
-#include "DOM/Element.h"
 #include "Document.h"
+#include "IDispatchAPI.h"
 
 #include <string>
 #include <vector>
-
-// TODO(jtojanen): CComPtr and CComQIPtr
-#include <atlcomcli.h>
 
 // TODO(jtojanen): temporary addition, win_common.h is the right place for this
 #include <comdef.h>
@@ -32,107 +28,113 @@ namespace FB
     {
         namespace AXDOM
         {
-            Document::Document(
-                const FB::JSObjectPtr& obj, IWebBrowser* web) : \
-                Element(obj, web),
-                Node(obj, web),
-                FB::DOM::Document(obj),
-                FB::DOM::Element(obj),
-                FB::DOM::Node(obj),
-                htmlDocument2_(NULL)
+            using boost::intrusive_ptr;
+            using boost::static_pointer_cast;
+
+            using com::IDispatchPtr;
+            using com::query_interface;
+
+            typedef intrusive_ptr<IHTMLElement> IHTMLElementPtr;
+            typedef intrusive_ptr<IHTMLWindow2> IHTMLWindow2Ptr;
+            typedef intrusive_ptr<IHTMLDocument3> IHTMLDocument3Ptr;
+            typedef intrusive_ptr<IHTMLElementCollection> 
+                IHTMLElementCollectionPtr;
+
+            Document::Document(const IDispatchAPIPtr& api,
+                const IWebBrowserPtr& webBrowser) : \
+                Element(api, webBrowser), Node(api, webBrowser),
+                DOM::Document(api), DOM::Element(api), DOM::Node(api),
+                document2_(query_interface(api->getIDispatch()))
             {
-                IDispatch* dispatch =
-                    FB::ptr_cast<IDispatchAPI>(obj)->getIDispatch();
-                if (dispatch) {
-                    dispatch->QueryInterface(__uuidof(IHTMLDocument2),
-                        reinterpret_cast<void**>(&htmlDocument2_));
-                }
-                if (!htmlDocument2_) {
+                if (!document2_) {
                     throw std::bad_cast("This is not a valid Document object");
                 }
             }
 
             Document::~Document()
             {
-                if (htmlDocument2_) {
-                    htmlDocument2_->Release();
-                    htmlDocument2_ = NULL;
-                }
+                // nothing to do
             }
 
-            FB::DOM::WindowPtr Document::getWindow() const
+            DOM::WindowPtr Document::getWindow() const
             {
-                CComPtr<IHTMLWindow2> htmlWin;
-                HRESULT hr = htmlDocument2_->get_parentWindow(&htmlWin);
+                IHTMLWindow2Ptr htmlWindow2;
+                HRESULT hr = document2_->get_parentWindow(
+                    com::addressof(htmlWindow2));
                 if (FAILED(hr)) {
                     // TODO(jtojanen): should this throw exception?
-                    return FB::DOM::WindowPtr();
+                    return DOM::WindowPtr();
                 }
 
                 ActiveXBrowserHostPtr host(
-                    FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
-                FB::JSObjectPtr api(IDispatchAPI::create(htmlWin, host));
-                return FB::DOM::Window::create(api);
+                    static_pointer_cast<ActiveXBrowserHost>(
+                    getJSObject()->host));
+                JSObjectPtr api(
+                    IDispatchAPI::create(htmlWindow2.get(), host));
+                return DOM::Window::create(api);
             }
 
-            std::vector<FB::DOM::ElementPtr> Document::getElementsByTagName(
+            std::vector<DOM::ElementPtr> Document::getElementsByTagName(
                 const std::string& tagName) const
             {
-                CComQIPtr<IHTMLDocument3> htmlDocument3(htmlDocument2_);
-                if (!htmlDocument3) {
+                IHTMLDocument3Ptr document3(query_interface(document2_));
+                if (!document3) {
                     throw std::runtime_error(
                         "Could not get element by tag name");
                 }
 
-                CComPtr<IHTMLElementCollection> list;
-                std::vector<FB::DOM::ElementPtr> tagList;
-                const std::wstring name(FB::utf8_to_wstring(tagName));
-                HRESULT hr = htmlDocument3->getElementsByTagName(
-                    _bstr_t(name.c_str()), &list);
+                IHTMLElementCollectionPtr list;
+                std::vector<DOM::ElementPtr> tagList;
+                const std::wstring name(utf8_to_wstring(tagName));
+                HRESULT hr = document3->getElementsByTagName(
+                    _bstr_t(name.c_str()), com::addressof(list));
                 if (FAILED(hr)) {
                     // TODO(jtojanen): should this throw exception?
                     return tagList;
                 }
 
                 long length = 0;
-                if (SUCCEEDED(hr = list->get_length(&length))) {
-                    ActiveXBrowserHostPtr host(
-                        FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
-                    for (long i = 0; i < length; ++i) {
-                        _variant_t idx(i);
-                        CComPtr<IDispatch> dispObj;
-                        list->item(idx, idx, &dispObj);
-                        FB::JSObjectPtr obj(
-                            IDispatchAPI::create(dispObj, host));
-                        tagList.push_back(FB::DOM::Element::create(obj));
-                    }
+                if (FAILED(hr = list->get_length(&length))) {
+                    return tagList;
+                }
+
+                ActiveXBrowserHostPtr host(
+                    static_pointer_cast<ActiveXBrowserHost>(
+                    getJSObject()->host));
+                for (long i = 0; i < length; ++i) {
+                    _variant_t index(i);
+                    IDispatchPtr dispatch;
+                    list->item(index, index, com::addressof(dispatch));
+                    JSObjectPtr object(
+                        IDispatchAPI::create(dispatch.get(), host));
+                    tagList.push_back(DOM::Element::create(object));
                 }
 
                 return tagList;
             }
 
-
-            FB::DOM::ElementPtr Document::getElementById(
+            DOM::ElementPtr Document::getElementById(
                 const std::string& elem_id) const
             {
-                CComQIPtr<IHTMLDocument3> htmlDocument3(htmlDocument2_);
-                if (!htmlDocument3) {
+                IHTMLDocument3Ptr document3(query_interface(document2_));
+                if (!document3) {
                     throw std::exception(
                         "Document does not support getElementById");
                 }
-
-                CComPtr<IHTMLElement> element;
-                const std::wstring id(FB::utf8_to_wstring(elem_id));
-                HRESULT hr = htmlDocument3->getElementById(
-                    _bstr_t(id.c_str()), &element);
+             
+                IHTMLElementPtr element;
+                const std::wstring id(utf8_to_wstring(elem_id));
+                HRESULT hr = document3->getElementById(
+                    _bstr_t(id.c_str()), com::addressof(element));
                 if (FAILED(hr)) {
-                    return FB::DOM::ElementPtr();
+                    return DOM::ElementPtr();
                 }
 
                 ActiveXBrowserHostPtr host(
-                    FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->host));
-                FB::JSObjectPtr ptr(IDispatchAPI::create(element, host));
-                return FB::DOM::Element::create(ptr);
+                    static_pointer_cast<ActiveXBrowserHost>(
+                    getJSObject()->host));
+                JSObjectPtr ptr(IDispatchAPI::create(element.get(), host));
+                return DOM::Element::create(ptr);
             }
         }  // namespace AXDOM
     }  // namespace ActiveX

@@ -20,7 +20,8 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 #endif
 
 #include "DOM/Node.h"
-#include "win_common.h"
+#include "IDispatchAPI.h"
+#include "../com_utils.h"
 
 // forward declarations
 struct IWebBrowser;
@@ -31,19 +32,22 @@ namespace FB
     {
         namespace AXDOM
         {
+            typedef boost::intrusive_ptr<IWebBrowser> IWebBrowserPtr;
+
             ///////////////////////////////////////////////////////////////////
             /// @class  Node
             ///
             /// @brief  ActiveX specific implementation of DOM::Node
             ///////////////////////////////////////////////////////////////////
-            class Node : public virtual FB::DOM::Node
+            class Node : public virtual DOM::Node
             {
             public:
-                Node(const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                Node(const IDispatchAPIPtr& api,
+                    const IWebBrowserPtr& webBrowser);
                 virtual ~Node();
 
             private:
-                IWebBrowser* webBrowser_;
+                IWebBrowserPtr webBrowser_;
             };
 
             typedef boost::shared_ptr<Node> NodePtr;

@@ -3,11 +3,11 @@ Original Author: Richard Bateman (taxilian)
 
 Created:    Sep 21, 2010
 License:    Dual license model; choose one of two:
-New BSD License
-http://www.opensource.org/licenses/bsd-license.php
-- or -
-GNU Lesser General Public License, version 2.1
-http://www.gnu.org/licenses/lgpl-2.1.html
+            New BSD License
+            http://www.opensource.org/licenses/bsd-license.php
+            - or -
+            GNU Lesser General Public License, version 2.1
+            http://www.gnu.org/licenses/lgpl-2.1.html
 
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
@@ -22,7 +22,7 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 #include <string>
 #include "Node.h"
 #include "DOM/Window.h"
-#include "win_common.h"
+#include "../com_utils.h"
 
 // forward declarations
 struct IHTMLWindow2;
@@ -33,6 +33,9 @@ namespace FB
     {
         namespace AXDOM
         {
+            typedef boost::intrusive_ptr<IHTMLWindow2> IHTMLWindow2Ptr;
+            typedef boost::intrusive_ptr<IWebBrowser> IWebBrowserPtr;
+
             ///////////////////////////////////////////////////////////////////
             /// @class  Window
             ///
@@ -40,18 +43,19 @@ namespace FB
             ///////////////////////////////////////////////////////////////////
             class Window :
                 public virtual Node,
-                public virtual FB::DOM::Window
+                public virtual DOM::Window
             {
             public:
-                Window(const FB::JSObjectPtr& obj, IWebBrowser* web);
+                Window(const IDispatchAPIPtr& api,
+                    const IWebBrowserPtr& webBrowser);
                 virtual ~Window();
 
-                FB::DOM::DocumentPtr getDocument() const;
+                DOM::DocumentPtr getDocument() const;
                 void alert(const std::string& str) const;
                 std::string getLocation() const;
 
             private:
-                IHTMLWindow2* htmlWindow2_;
+                IHTMLWindow2Ptr window2_;
             };
         }  // namespace AXDOM
     }  // namespace ActiveX

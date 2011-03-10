@@ -43,6 +43,8 @@ Copyright 20100 Georg Fritzsche, Firebreath development team
 // TODO(jtojanen): temporary addition, win_common.h is the right place for this
 #include <comdef.h>
 
+#include "./com_utils.h"
+
 namespace FB {
     namespace ActiveX {
         struct type_info_less
@@ -162,6 +164,8 @@ namespace FB {
         template<> inline const _variant_t makeComVariant<FB::JSAPIPtr>(
             const ActiveXBrowserHostPtr& host, const FB::variant& var)
         {
+            using com::IDispatchExPtr;
+
             _variant_t result;
 
             FB::JSAPIPtr object(var.cast<FB::JSAPIPtr>());
@@ -171,9 +175,9 @@ namespace FB {
             } else if (object) {
                 // Add object to the list of shared_ptrs that browserhost keeps
                 host->retainJSAPIPtr(object);
-                result = host->getJSAPIWrapper(object, true);
-                // TODO(jtojanen): we should avoid manual reference counting
-                V_DISPATCH(&result)->Release();
+                const IDispatchExPtr dispatchEx(
+                    host->getJSAPIWrapper(object, true));
+                result = dispatchEx.get();
             } else {
                 result.ChangeType(VT_NULL);
             }
@@ -184,6 +188,8 @@ namespace FB {
         template<> inline const _variant_t makeComVariant<FB::JSAPIWeakPtr>(
             const ActiveXBrowserHostPtr& host, const FB::variant& var)
         {
+            using com::IDispatchExPtr;
+
             _variant_t result;
 
             FB::JSAPIPtr object(var.convert_cast<FB::JSAPIPtr>());
@@ -191,9 +197,9 @@ namespace FB {
             if (api) {
                 result = api->getIDispatch();
             } else if (object) {
-                result = host->getJSAPIWrapper(object);
-                // TODO(jtojanen): we should avoid manual reference counting
-                V_DISPATCH(&result)->Release();
+                const IDispatchExPtr dispatchEx(
+                    host->getJSAPIWrapper(object));
+                result = dispatchEx.get();
             } else {
                 result.ChangeType(VT_NULL);
             }

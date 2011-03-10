@@ -27,22 +27,29 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #include "ActiveXFactoryDefinitions.h"
 
-#include <atlcomcli.h>
 #include <utility>
-
-using boost::assign::list_of;
-using boost::int64_t;
-using boost::make_shared;
-using boost::shared_lock;
-using boost::shared_mutex;
-using boost::static_pointer_cast;
-using boost::uint64_t;
-using boost::upgrade_lock;
 
 namespace FB
 {
     namespace ActiveX
     {
+        using boost::assign::list_of;
+        using boost::intrusive_ptr;
+        using boost::int64_t;
+        using boost::make_shared;
+        using boost::shared_lock;
+        using boost::shared_mutex;
+        using boost::static_pointer_cast;
+        using boost::uint64_t;
+        using boost::upgrade_lock;
+
+        using com::IDispatchPtr;
+        using com::IDispatchExPtr;
+        using com::query_interface;
+
+        typedef intrusive_ptr<IHTMLDocument2> IHTMLDocument2Ptr;
+        typedef intrusive_ptr<IOleControlSite> IOleControlSitePtr;
+
         template<class T>
         ComVariantBuilderMap::value_type makeBuilderEntry()
         {
@@ -93,19 +100,21 @@ namespace FB
         }
 
         ActiveXBrowserHost::ActiveXBrowserHost(IWebBrowser* webBrowser,
-            IOleClientSite* site) :
-        m_spClientSite(site), m_webBrowser(webBrowser),
+            IOleClientSite* site) : \
+            clientSite_(site), webBrowser_(webBrowser),
             m_messageWin(new WinMessageWindow())
         {
-            if (m_webBrowser) {
-                m_webBrowser->get_Document(&m_htmlDocument);
-                CComQIPtr<IHTMLDocument2> htmlDocument2(m_htmlDocument);
-                htmlDocument2->get_parentWindow(&m_htmlWindow);
+            if (webBrowser_) {
+                webBrowser_->get_Document(com::addressof(htmlDocument_));
+                IHTMLDocument2Ptr htmlDocument2(
+                    query_interface(htmlDocument_));
+                htmlDocument2->get_parentWindow(com::addressof(htmlWindow2_));
             }
         }
 
         ActiveXBrowserHost::~ActiveXBrowserHost(void)
         {
+            // nothing to do
         }
 
         bool ActiveXBrowserHost::_scheduleAsyncCall(
@@ -132,29 +141,41 @@ namespace FB
         DOM::WindowPtr ActiveXBrowserHost::_createWindow(
             const JSObjectPtr& obj) const
         {
-            return DOM::WindowPtr(
-                new AXDOM::Window(ptr_cast<IDispatchAPI>(obj), m_webBrowser));
+            IDispatchAPIPtr api(ptr_cast<IDispatchAPI>(obj));
+            if (!api) {
+                return DOM::WindowPtr();
+            }
+            return make_shared<AXDOM::Window>(api, webBrowser_);
         }
 
         DOM::DocumentPtr ActiveXBrowserHost::_createDocument(
             const JSObjectPtr& obj) const
         {
-            return DOM::DocumentPtr(
-                new AXDOM::Document(ptr_cast<IDispatchAPI>(obj), m_webBrowser));
+            IDispatchAPIPtr api(ptr_cast<IDispatchAPI>(obj));
+            if (!api) {
+                return DOM::DocumentPtr();
+            }
+            return make_shared<AXDOM::Document>(api, webBrowser_);
         }
 
         DOM::ElementPtr ActiveXBrowserHost::_createElement(
             const JSObjectPtr& obj) const
         {
-            return DOM::ElementPtr(
-                new AXDOM::Element(ptr_cast<IDispatchAPI>(obj), m_webBrowser));
+            IDispatchAPIPtr api(ptr_cast<IDispatchAPI>(obj));
+            if (!api) {
+                return DOM::ElementPtr();
+            }
+            return make_shared<AXDOM::Element>(api, webBrowser_);
         }
 
         DOM::NodePtr ActiveXBrowserHost::_createNode(
             const JSObjectPtr& obj) const
         {
-            return DOM::NodePtr(
-                new AXDOM::Node(ptr_cast<IDispatchAPI>(obj), m_webBrowser));
+            IDispatchAPIPtr api(ptr_cast<IDispatchAPI>(obj));
+            if (!api) {
+                return DOM::NodePtr();
+            }
+            return make_shared<AXDOM::Node>(api, webBrowser_);
         }
 
         void ActiveXBrowserHost::initDOMObjects()
@@ -164,9 +185,9 @@ namespace FB
                     static_pointer_cast<ActiveXBrowserHost>(
                     shared_from_this()));
                 m_window = DOM::Window::create(
-                    IDispatchAPI::create(m_htmlWindow, shared_this));
+                    IDispatchAPI::create(htmlWindow2_.get(), shared_this));
                 m_document = DOM::Document::create(
-                    IDispatchAPI::create(m_htmlDocument, shared_this));
+                    IDispatchAPI::create(htmlDocument_.get(), shared_this));
             }
         }
 
@@ -184,31 +205,30 @@ namespace FB
 
         DOM::ElementPtr ActiveXBrowserHost::getDOMElement()
         {
-            CComQIPtr<IOleControlSite> site(m_spClientSite);
+            IOleControlSitePtr site(query_interface(clientSite_));
 
-            CComPtr<IDispatch> dispatch;
-            HRESULT hr = site->GetExtendedControl(&dispatch);
+            IDispatchPtr control;
+            HRESULT hr = site->GetExtendedControl(com::addressof(control));
             if (FAILED(hr)) {
                 return DOM::ElementPtr();
             }
 
-            CComQIPtr<IHTMLElement2> htmlElement(dispatch);
             ActiveXBrowserHostPtr shared_this(
                 static_pointer_cast<ActiveXBrowserHost>(shared_from_this()));
             return DOM::Document::create(
-                IDispatchAPI::create(htmlElement, shared_this));
+                IDispatchAPI::create(control.get(), shared_this));
         }
 
-        void ActiveXBrowserHost::evaluateJavaScript(const std::string &script)
+        void ActiveXBrowserHost::evaluateJavaScript(const std::string& script)
         {
-            if (!m_htmlWindow) {
+            if (!htmlWindow2_) {
                 throw script_error("Can't execute JavaScript: Window is NULL");
             }
 
             _variant_t result;
             _bstr_t code(script.c_str());
             static const _bstr_t language(L"javascript");
-            HRESULT hr = m_htmlWindow->execScript(code, language, &result);
+            HRESULT hr = htmlWindow2_->execScript(code, language, &result);
             if (FAILED(hr)) {
                 throw script_error("Error executing JavaScript code");
             }
@@ -234,21 +254,21 @@ namespace FB
 
             // Once that's done let's release any ActiveX resources that
             // the browserhost is holding
-            m_spClientSite.Release();
-            m_htmlDocument.Release();
-            m_htmlWindow.Release();
-            m_webBrowser.Release();
+            clientSite_.reset();
+            htmlDocument_.reset();
+            htmlWindow2_.reset();
+            webBrowser_.reset();
             m_window.reset();
             m_document.reset();
             DoDeferredRelease();
             assert(m_deferredObjects.empty());
         }
 
-        const variant ActiveXBrowserHost::getVariant(const VARIANT* variant)
+        const variant ActiveXBrowserHost::getVariant(const VARIANT* var)
         {
-            FB::variant target;
+            variant target;
 
-            _variant_t source(variant);
+            _variant_t source(var);
             switch (V_VT(&source))
             {
             case VT_R4:
@@ -416,7 +436,7 @@ namespace FB
             m_deferredObjects.push(m_obj);
         }
 
-        IDispatchEx* ActiveXBrowserHost::getJSAPIWrapper(
+        const IDispatchExPtr ActiveXBrowserHost::getJSAPIWrapper(
             const JSAPIWeakPtr& api, bool autoRelease /* = false*/)
         {
             typedef boost::shared_ptr<ShareableReference<IDispatchEx> >
@@ -427,11 +447,11 @@ namespace FB
 
             JSAPIPtr ptr(api.lock());
             if (!ptr) {
-                return getFactoryInstance()->createCOMJSObject(
-                    shared_from_this(), api, false);
+                return IDispatchExPtr(
+                    getFactoryInstance()->createCOMJSObject(
+                    shared_from_this(), api, false), false);
             }
 
-            IDispatchEx* ret = NULL;
             IDispatchRefMap::iterator fnd = m_cachedIDispatch.find(ptr.get());
             if (fnd != m_cachedIDispatch.end()) {
                 SharedIDispatchRef ref(fnd->second.lock());
@@ -439,19 +459,19 @@ namespace FB
                     // Fortunately this doesn't have to be threadsafe since
                     // this method only gets called from the main thread and
                     // the browser access happens on that thread as well!
-                    ret = ref->getPtr();
-                    ret->AddRef();
+                    IDispatchExPtr dispatchEx(ref->getPtr());
+                    BOOST_ASSERT(dispatchEx);
+                    return dispatchEx;
                 } else {
                     m_cachedIDispatch.erase(fnd);
                 }
             }
-            if (!ret) {
-                ret = getFactoryInstance()->createCOMJSObject(
-                    shared_from_this(), api, autoRelease);
-                m_cachedIDispatch[ptr.get()] = _getWeakRefFromCOMJSWrapper(ret);
-            }
 
-            return ret;
+            IDispatchExPtr dispatchEx(getFactoryInstance()->createCOMJSObject(
+                shared_from_this(), api, autoRelease), false);
+            m_cachedIDispatch[ptr.get()] = 
+                _getWeakRefFromCOMJSWrapper(dispatchEx.get());
+            return dispatchEx;
         }
     }  // namespace ActiveX
 }  // namespace FB

@@ -24,7 +24,7 @@ Copyright 2010 Facebook, Inc and the Firebreath development team
 #include "./Node.h"
 #include "DOM/Element.h"
 #include "JSObject.h"
-#include "win_common.h"
+#include "../com_utils.h"
 
 // forward declarations
 struct IDispatch;
@@ -35,6 +35,8 @@ namespace FB
     {
         namespace AXDOM
         {
+            typedef boost::intrusive_ptr<IWebBrowser> IWebBrowserPtr;
+
             ///////////////////////////////////////////////////////////////////
             /// @class  Element
             ///
@@ -42,19 +44,19 @@ namespace FB
             ///////////////////////////////////////////////////////////////////
             class Element :
                 public virtual Node,
-                public virtual FB::DOM::Element
+                public virtual DOM::Element
             {
             public:
-                Element(
-                    const FB::JSObjectPtr& element, IWebBrowser* webBrowser);
+                Element(const IDispatchAPIPtr& api,
+                    const IWebBrowserPtr& webBrowser);
                 virtual ~Element();
 
-                std::vector<FB::DOM::ElementPtr> getElementsByTagName(
+                std::vector<DOM::ElementPtr> getElementsByTagName(
                     const std::string& tagName) const;
                 std::string getStringAttribute(const std::string& attr) const;
 
             private:
-                IDispatch* dispatch_;
+                com::IDispatchPtr dispatch_;
             };
         }
     }
