@@ -188,8 +188,8 @@ void FB::_asyncCallData::call()
 
 void FB::AsyncCallManager::call( _asyncCallData* data )
 {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     data->call();
+    boost::recursive_mutex::scoped_lock _l(m_mutex);
     DataList.remove(data);
 }
 
@@ -250,7 +250,7 @@ FB::BrowserStreamPtr FB::BrowserHost::createStream( const std::string& url,
 
 FB::BrowserStreamPtr FB::BrowserHost::createPostStream( const std::string& url,
     const PluginEventSinkPtr& callback, const std::string& postdata, bool cache /*= true*/, 
-	bool seekable /*= false*/, size_t internalBufferSize /*= 128 * 1024 */ ) const
+    bool seekable /*= false*/, size_t internalBufferSize /*= 128 * 1024 */ ) const
 {
     assertMainThread();
     FB::BrowserStreamPtr ptr(_createPostStream(url, callback, postdata, cache, seekable, internalBufferSize));
