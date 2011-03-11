@@ -652,6 +652,11 @@ namespace FB
         virtual void registerProxy(const JSAPIWeakPtr &ptr) const;
         virtual void unregisterProxy( const FB::JSAPIPtr& ptr ) const;
 
+        const JSObjectPtr getJSObject()
+        {
+            return impl_getJSObject();
+        }
+
     protected:
         typedef std::deque<SecurityZone> ZoneStack;
         // Stores event handlers
@@ -668,6 +673,13 @@ namespace FB
         ZoneStack m_zoneStack;
                 
         bool m_valid;                   // Tracks if this object has been invalidated
+
+    private:
+        friend class JSObject;
+        virtual const JSObjectPtr impl_getJSObject()
+        {
+            return JSObjectPtr();
+        }
     };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

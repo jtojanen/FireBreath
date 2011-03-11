@@ -447,6 +447,7 @@ namespace FB
 
             JSAPIPtr ptr(api.lock());
             if (!ptr) {
+                // createCOMJSObject returns already addrefs pointer
                 return IDispatchExPtr(
                     getFactoryInstance()->createCOMJSObject(
                     shared_from_this(), api, false), false);
@@ -467,6 +468,7 @@ namespace FB
                 }
             }
 
+            // createCOMJSObject returns already addrefs pointer
             IDispatchExPtr dispatchEx(getFactoryInstance()->createCOMJSObject(
                 shared_from_this(), api, autoRelease), false);
             m_cachedIDispatch[ptr.get()] = 

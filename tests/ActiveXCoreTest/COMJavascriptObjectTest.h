@@ -70,6 +70,9 @@ TEST (COMJavascriptObject_CreateTest)
     boost::shared_ptr<TestObjectJSAPI> testIf(new TestObjectJSAPI());
     CComPtr<IDispatchEx> obj(
         getFactoryInstance()->createCOMJSObject(host, testIf));
+    
+    // createCOMJSObject returns already addrefs pointer
+    obj.p->Release();
 
     CHECK (true);
 }
@@ -83,6 +86,9 @@ TEST(COMJavascriptObject_Methods)
     boost::shared_ptr<TestObjectJSAPI> testIf(new TestObjectJSAPI());
     CComPtr<IDispatchEx> obj(
         getFactoryInstance()->createCOMJSObject(host, testIf));
+
+    // createCOMJSObject returns already addrefs pointer
+    obj.p->Release();
 
     HRESULT hr = S_OK;
 
