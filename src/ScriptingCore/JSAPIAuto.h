@@ -283,7 +283,7 @@ namespace FB {
         ///         
         /// @return A string representation of this object. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual std::string ToString()
+        virtual std::string ToString() const
         {
             return m_description;
         }
@@ -296,7 +296,7 @@ namespace FB {
         ///
         /// @return true if it succeeds, false if it fails. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool get_valid()
+        virtual bool get_valid() const
         {
             return true;
         }

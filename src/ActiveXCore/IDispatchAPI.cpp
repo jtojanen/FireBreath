@@ -375,9 +375,11 @@ FB::variant IDispatchAPI::Invoke(const std::string& methodName, const std::vecto
     size_t argCount(args.size());
     boost::scoped_array<CComVariant> comArgs(new CComVariant[argCount]);
     boost::scoped_array<VARIANTARG> rawComArgs(new VARIANTARG[argCount]);
+    
     DISPPARAMS params;
-    params.cArgs = args.size();
+    params.cArgs = argCount;
     params.cNamedArgs = 0;
+    params.rgdispidNamedArgs = NULL;
     params.rgvarg = rawComArgs.get();
 
     for (size_t i = 0; i < args.size(); i++) {
@@ -388,8 +390,15 @@ FB::variant IDispatchAPI::Invoke(const std::string& methodName, const std::vecto
 
     CComVariant result;
     CComExcepInfo exceptionInfo;
-    HRESULT hr = m_obj->Invoke(dispId, IID_NULL, LOCALE_USER_DEFAULT,
-        DISPATCH_METHOD, &params, &result, &exceptionInfo, NULL);
+    CComQIPtr<IDispatchEx> dispatchEx(m_obj);
+    HRESULT hr;
+    if (!dispatchEx) {
+        hr = m_obj->Invoke(dispId, IID_NULL, LOCALE_USER_DEFAULT,
+            DISPATCH_METHOD, &params, &result, &exceptionInfo, NULL);
+    } else {
+        hr = dispatchEx->InvokeEx(dispId, LOCALE_USER_DEFAULT,
+            DISPATCH_METHOD, &params, &result, &exceptionInfo, NULL);
+    }
     if (FAILED(hr)) {
         throw FB::script_error("Method invoke failed");
     }

@@ -453,7 +453,11 @@ namespace FB { namespace ActiveX {
                         params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
                 } else {
-                    for (int i = pdp->cArgs - 1; i >= 0; i--) {
+                    // TODO(jtojanen): I guess we could use this for above case
+                    // where id == 0, but I cannot verify this
+                    params.reserve(pdp->cArgs - pdp->cNamedArgs);
+                    for (int i = pdp->cArgs - 1;
+                        i >= static_cast<int>(pdp->cNamedArgs); --i) {
                         params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
                 }

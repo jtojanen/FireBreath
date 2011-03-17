@@ -131,8 +131,8 @@ namespace FB {
             JSObjectPtr outArray(host->getDOMWindow()->createArray());
             for (VariantList::const_iterator it = inArray.begin(),
                 end = inArray.end(); it != end; ++it) {
-                    VariantList variantList(boost::assign::list_of(*it));
-                    outArray->Invoke("push", variantList);
+                    VariantList args(boost::assign::list_of(*it));
+                    outArray->Invoke("push", args);
             }
 
             // This works as JSObject is implemented by IDispatchAPI or
