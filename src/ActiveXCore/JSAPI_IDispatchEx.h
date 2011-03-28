@@ -396,11 +396,11 @@ namespace FB { namespace ActiveX {
             return DISP_E_MEMBERNOTFOUND;
         }
 
-        std::wstring wsName;
+        std::string name;
 
         try 
         {
-            wsName = AxIdMap.getValueForId<std::wstring>(id);
+            name = AxIdMap.getValueForId<std::string>(id);
 
             if (wFlags & DISPATCH_PROPERTYGET) {
                 if(!pvarRes)
@@ -418,21 +418,21 @@ namespace FB { namespace ActiveX {
                 }
             }
 
-            if (wsName == L"attachEvent" || wsName == L"detachEvent") {
+            if (name == "attachEvent" || name == "detachEvent") {
                 if (wFlags & DISPATCH_METHOD) {
                     std::vector<FB::variant> params;
                     for (int i = pdp->cArgs - 1; i >= 0; i--) {
                         params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
 
-                    if (wsName[0] == L'a') {
+                    if (name[0] == 'a') {
                         m_attachFunc->exec(params);
                     } else {
                         m_detachFunc->exec(params);
                     }
                 } else if (wFlags & DISPATCH_PROPERTYGET) {
                     FB::variant rVal;
-                    if (wsName[0] == L'a') {
+                    if (name[0] == 'a') {
                         rVal = m_attachFunc;
                     } else {
                         rVal = m_detachFunc;
@@ -440,73 +440,71 @@ namespace FB { namespace ActiveX {
                     m_host->getComVariant(pvarRes, rVal);
                 }
 
-            } else if (wFlags & DISPATCH_METHOD && (api->HasMethod(wsName) || !id) ) {
+            } else if (wFlags & DISPATCH_METHOD && (api->HasMethod(name) || !id) ) {
+
                 std::vector<FB::variant> params;
-                if (id == 0) {
-                    // TODO: Figure out why default function calls have an extra argument;
-                    // My theory is that the argument is the object we're calling this on,
-                    // since the first (last, since we reverse the order) argument passed
-                    // is an IDispatch object
-                    wsName.clear();
-                    for (int i = pdp->cArgs - 1; i >= 1; i--) {
-                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
-                    }
-                } else {
-                    // TODO(jtojanen): I guess we could use this for above case
-                    // where id == 0, but I cannot verify this
+
+                // ignore all named arguments
+                BOOST_ASSERT(pdp->cArgs >= pdp->cNamedArgs);
+                if (pdp->cArgs > pdp->cNamedArgs) {
                     params.reserve(pdp->cArgs - pdp->cNamedArgs);
-                    for (int i = pdp->cArgs - 1;
-                        i >= static_cast<int>(pdp->cNamedArgs); --i) {
-                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                    for (unsigned u = pdp->cArgs - 1;
+                        u >= pdp->cNamedArgs; --u) {
+                            params.push_back(m_host->getVariant(&pdp->rgvarg[u]));
                     }
                 }
-                FB::variant rVal;
-                rVal = api->Invoke(wsName, params);
-                
-                if(pvarRes)
+
+                // check if default function call
+                if (id == DISPID_VALUE) {
+                    name.clear();
+                }
+
+                FB::variant rVal = api->Invoke(name, params);                
+                if (pvarRes) {
                     m_host->getComVariant(pvarRes, rVal);
+                }
 
-            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasMethod(wsName)) {
+            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasMethod(name)) {
 
                 FB::variant rVal;
-                if (api->HasMethodObject(wsName))
-                    rVal = api->GetMethodObject(wsName);
+                if (api->HasMethodObject(name))
+                    rVal = api->GetMethodObject(name);
                 else
                     rVal = true;
                 m_host->getComVariant(pvarRes, rVal);
 
-            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasProperty(wsName)) {
+            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasProperty(name)) {
 
                 if(!pvarRes)
                     return E_INVALIDARG;
 
-                FB::variant rVal = api->GetProperty(wsName);
+                FB::variant rVal = api->GetProperty(name);
 
                 m_host->getComVariant(pvarRes, rVal);
 
-            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasEvent(wsName)) {
+            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasEvent(name)) {
                 
                 FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
                 if (newVal.empty()) {
-                    api->setDefaultEventMethod(wsName, FB::JSObjectPtr());
+                    api->setDefaultEventMethod(name, FB::JSObjectPtr());
                 } else {
                     FB::JSObjectPtr method(newVal.cast<FB::JSObjectPtr>());
-                    api->setDefaultEventMethod(wsName, method);
+                    api->setDefaultEventMethod(name, method);
                 }
 
-            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasProperty(wsName)) {
+            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasProperty(name)) {
 
                 FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
-                api->SetProperty(wsName, newVal);
+                api->SetProperty(name, newVal);
 
             } else {
                 throw FB::invalid_member("Invalid method or property name");
             }
         } catch (const FB::invalid_member&) {
-            FBLOG_INFO("JSAPI_IDispatchEx", "No such member: \"" << FB::wstring_to_utf8(wsName) << "\"");
+            FBLOG_INFO("JSAPI_IDispatchEx", "No such member: \"" << name << "\"");
             return DISP_E_MEMBERNOTFOUND;
         } catch (const FB::script_error& se) {
-            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << FB::wstring_to_utf8(wsName) << "\": " << se.what());
+            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << name << "\": " << se.what());
             if (pei != NULL) {
                 pei->bstrSource = CComBSTR(m_mimetype.c_str()).Detach();
                 pei->bstrDescription = CComBSTR(se.what()).Detach();
