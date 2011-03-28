@@ -85,7 +85,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 for (long i = 0; i < length; i++) {
                     _variant_t index(i);
                     IDispatchPtr dispatch;
@@ -117,7 +117,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 variant variant(host->getVariant(&value));
                 return variant.convert_cast<std::string>();
             }

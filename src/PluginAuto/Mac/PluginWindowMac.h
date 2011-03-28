@@ -38,12 +38,18 @@ namespace FB {
         };
 
         static NPDrawingModel initPluginWindowMac(const FB::Npapi::NpapiBrowserHostPtr &host);
+        static NPDrawingModel initPluginWindowMac(const FB::Npapi::NpapiBrowserHostPtr &host, const std::string& drawingModel);
         static FB::PluginWindowMac* createPluginWindowMac(NPDrawingModel drawingModel);
 
         PluginWindowMac();
-        virtual ~PluginWindowMac() {}
+        virtual ~PluginWindowMac();
+
+        virtual void StartAutoInvalidate(double rate);
+        virtual void StopAutoInvalidate();
+        virtual void InvalidateWindow() const;
 
         virtual NPError SetWindow(NPWindow* window);
+        virtual int16_t GetValue(NPPVariable variable, void *value) { return NPERR_NO_ERROR; }
 
         virtual DrawingModel getDrawingModel() const = 0;
         virtual void* getDrawingPrimitive() const = 0;
@@ -66,7 +72,7 @@ namespace FB {
         /// @param  interval    Numer of milliseconds before the timer event is first called
         /// @param  repeat      If true, timer will repeat (at a period specified by the interval parameter)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        int scheduleTimer(int interval, bool repeat);
+        virtual int scheduleTimer(int interval, bool repeat);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn     int PluginWindowMacCocoa::unscheduleTimer(int timerId)
@@ -75,9 +81,9 @@ namespace FB {
         /// 
         /// @param  timerId     The id of the previously scheduled timer
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        void unscheduleTimer(int timerId);
+        virtual void unscheduleTimer(int timerId);
         // Handles a timer event 
-        void handleTimerEvent();
+        virtual void handleTimerEvent();
 
     protected:
         Npapi::NpapiBrowserHostPtr m_npHost;
@@ -92,6 +98,9 @@ namespace FB {
         int32_t m_clipLeft;
         int32_t m_clipBottom;
         int32_t m_clipRight;
+        
+        void* m_timer;
+        void* m_helper;
     };
 };
 

@@ -36,7 +36,7 @@ namespace FB
         // static
         NodePtr Node::create(const FB::JSObjectPtr& api)
         {
-            return api->host->_createNode(api);
+            return api->getHost()->_createNode(api);
         }
 
         NodePtr Node::getNode(const std::wstring& name) const

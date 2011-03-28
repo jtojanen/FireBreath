@@ -61,7 +61,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 JSObjectPtr api(IDispatchAPI::create(document2.get(), host));
                 return DOM::Document::create(api);
             }

@@ -7,6 +7,7 @@ New BSD License
 http://www.opensource.org/licenses/bsd-license.php
 - or -
 GNU Lesser General Public License, version 2.1
+
 http://www.gnu.org/licenses/lgpl-2.1.html
 
 Copyright 2009 Richard Bateman, Firebreath development team
@@ -26,62 +27,6 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "BrowserHost.h"
 #include <boost/smart_ptr/enable_shared_from_this.hpp>
 #include "../PluginCore/BrowserStreamManager.h"
-
-void FB::BrowserHost::htmlLog(const std::string& str)
-{
-    FBLOG_INFO("BrowserHost", "Logging to HTML: " << str);
-    try {
-        this->ScheduleAsyncCall(&FB::BrowserHost::AsyncHtmlLog,
-            new FB::AsyncLogRequest(shared_from_this(), str));
-    } catch (const std::exception&) {
-        // This fails during shutdown; ignore it
-    }
-}
-
-void FB::BrowserHost::AsyncHtmlLog(void *logReq)
-{
-    FB::AsyncLogRequest *req = (FB::AsyncLogRequest*)logReq;
-    try {
-        FB::DOM::WindowPtr window = req->m_host->getDOMWindow();
-
-        if (window->getJSObject()->HasProperty("console")) {
-            FB::JSObjectPtr obj = window->getProperty<FB::JSObjectPtr>("console");
-            printf("Logging: %s\n", req->m_msg.c_str());
-            obj->Invoke("log", FB::variant_list_of(req->m_msg));
-        }
-    } catch (const std::exception &) {
-        // printf("Exception: %s\n", e.what());
-        // Fail silently; logging should not require success.
-        FBLOG_TRACE("BrowserHost", "Logging to browser console failed");
-        return;
-    }
-    delete req;
-}
-
-void FB::BrowserHost::evaluateJavaScript(const std::wstring &script)
-{
-    evaluateJavaScript(FB::wstring_to_utf8(script));
-}
-
-FB::DOM::WindowPtr FB::BrowserHost::_createWindow(const FB::JSObjectPtr& obj) const
-{
-    return FB::DOM::WindowPtr(new FB::DOM::Window(obj));
-}
-
-FB::DOM::DocumentPtr FB::BrowserHost::_createDocument(const FB::JSObjectPtr& obj) const
-{
-    return FB::DOM::DocumentPtr(new FB::DOM::Document(obj));
-}
-
-FB::DOM::ElementPtr FB::BrowserHost::_createElement(const FB::JSObjectPtr& obj) const
-{
-    return FB::DOM::ElementPtr(new FB::DOM::Element(obj));
-}
-
-FB::DOM::NodePtr FB::BrowserHost::_createNode(const FB::JSObjectPtr& obj) const
-{
-    return FB::DOM::NodePtr(new FB::DOM::Node(obj));
-}
 
 //////////////////////////////////////////
 // This is used to keep async calls from
@@ -118,11 +63,18 @@ namespace FB {
     };
 }
 
+volatile int FB::BrowserHost::InstanceCount(0);
+
 FB::BrowserHost::BrowserHost()
     : _asyncManager(boost::make_shared<AsyncCallManager>()), m_threadId(boost::this_thread::get_id()),
       m_isShutDown(false), m_streamMgr(boost::make_shared<FB::BrowserStreamManager>())
 {
+    ++InstanceCount;
+}
 
+FB::BrowserHost::~BrowserHost()
+{
+    --InstanceCount;
 }
 
 void FB::BrowserHost::shutdown()
@@ -132,6 +84,63 @@ void FB::BrowserHost::shutdown()
     m_isShutDown = true;
     _asyncManager->shutdown();
     m_streamMgr.reset();
+}
+
+void FB::BrowserHost::htmlLog(const std::string& str)
+{
+    FBLOG_INFO("BrowserHost", "Logging to HTML: " << str);
+    try {
+        this->ScheduleAsyncCall(&FB::BrowserHost::AsyncHtmlLog,
+            new FB::AsyncLogRequest(shared_from_this(), str));
+    } catch (const std::exception&) {
+        // This fails during shutdown; ignore it
+    }
+}
+
+void FB::BrowserHost::AsyncHtmlLog(void *logReq)
+{
+    FB::AsyncLogRequest *req = (FB::AsyncLogRequest*)logReq;
+    try {
+        FB::DOM::WindowPtr window = req->m_host->getDOMWindow();
+
+        if (window->getJSObject()->HasProperty("console")) {
+            FB::JSObjectPtr obj = window->getProperty<FB::JSObjectPtr>("console");
+            printf("Logging: %s\n", req->m_msg.c_str());
+            if (obj)
+                obj->Invoke("log", FB::variant_list_of(req->m_msg));
+        }
+    } catch (const std::exception &) {
+        // printf("Exception: %s\n", e.what());
+        // Fail silently; logging should not require success.
+        FBLOG_TRACE("BrowserHost", "Logging to browser console failed");
+        return;
+    }
+    delete req;
+}
+
+void FB::BrowserHost::evaluateJavaScript(const std::wstring &script)
+{
+    evaluateJavaScript(FB::wstring_to_utf8(script));
+}
+
+FB::DOM::WindowPtr FB::BrowserHost::_createWindow(const FB::JSObjectPtr& obj) const
+{
+    return FB::DOM::WindowPtr(new FB::DOM::Window(obj));
+}
+
+FB::DOM::DocumentPtr FB::BrowserHost::_createDocument(const FB::JSObjectPtr& obj) const
+{
+    return FB::DOM::DocumentPtr(new FB::DOM::Document(obj));
+}
+
+FB::DOM::ElementPtr FB::BrowserHost::_createElement(const FB::JSObjectPtr& obj) const
+{
+    return FB::DOM::ElementPtr(new FB::DOM::Element(obj));
+}
+
+FB::DOM::NodePtr FB::BrowserHost::_createNode(const FB::JSObjectPtr& obj) const
+{
+    return FB::DOM::NodePtr(new FB::DOM::Node(obj));
 }
 
 void FB::BrowserHost::assertMainThread() const
@@ -181,7 +190,10 @@ void FB::BrowserHost::releaseJSAPIPtr( const FB::JSAPIPtr& obj ) const
 void FB::_asyncCallData::call()
 {
     if (func) {
-        func(userData); called = true; userData = NULL; func = NULL;
+        void (*f)(void *) = func;
+        func = NULL;
+        called = true;
+        f(userData); 
     }
 }
 
@@ -204,10 +216,11 @@ FB::_asyncCallData* FB::AsyncCallManager::makeCallback(void (*func)(void *), voi
 void FB::AsyncCallManager::shutdown()
 {
     boost::recursive_mutex::scoped_lock _l(m_mutex);
-    std::for_each(DataList.begin(), DataList.end(), boost::lambda::bind(&_asyncCallData::call, boost::lambda::_1));
     // Store these so that they can be freed when the browserhost object is destroyed -- at that
     // point it's no longer possible for the browser to finish the async calls
     canceledDataList.insert(canceledDataList.end(), DataList.begin(), DataList.end());
+
+    std::for_each(DataList.begin(), DataList.end(), boost::lambda::bind(&_asyncCallData::call, boost::lambda::_1));
     DataList.clear();
 }
 
@@ -219,10 +232,18 @@ FB::AsyncCallManager::~AsyncCallManager()
 
 void asyncCallWrapper(void *userData)
 {
-    boost::scoped_ptr<FB::_asyncCallData> data(static_cast<FB::_asyncCallData*>(userData));
+    FB::_asyncCallData* data(static_cast<FB::_asyncCallData*>(userData));
     FB::AsyncCallManagerPtr ptr(data->mgr.lock());
     if (ptr) {
-        ptr->call(data.get());
+        ptr->call(data);
+        // Oddly enough, the callback is sometimes re-entrant, which can
+        // cause things to get moved around while the call is happening.
+        // This means that DataList may have been cleared, in which case
+        // the AsyncManager will be responsible for freeing things
+        if (ptr->DataList.size() > 0) {
+            ptr->DataList.remove(data);
+            delete data;
+        }
     }
 }
 

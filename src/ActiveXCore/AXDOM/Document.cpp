@@ -68,7 +68,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 JSObjectPtr api(
                     IDispatchAPI::create(htmlWindow2.get(), host));
                 return DOM::Window::create(api);
@@ -100,7 +100,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 for (long i = 0; i < length; ++i) {
                     _variant_t index(i);
                     IDispatchPtr dispatch;
@@ -132,7 +132,7 @@ namespace FB
 
                 ActiveXBrowserHostPtr host(
                     static_pointer_cast<ActiveXBrowserHost>(
-                    getJSObject()->host));
+                    getJSObject()->getHost()));
                 JSObjectPtr ptr(IDispatchAPI::create(element.get(), host));
                 return DOM::Element::create(ptr);
             }

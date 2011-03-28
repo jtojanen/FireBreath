@@ -24,9 +24,10 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 namespace FB { namespace Npapi {
 
-    class NpapiPluginModule;
-    class NPJavascriptObject;
-    class NPObjectAPI;
+    FB_FORWARD_PTR(NpapiPluginModule);
+    FB_FORWARD_PTR(NPObjectAPI);
+    FB_FORWARD_PTR(NpapiBrowserHost);
+    FB_FORWARD_PTR(NPJavascriptObject);
     typedef boost::shared_ptr<NPObjectAPI> NPObjectAPIPtr;
     typedef boost::weak_ptr<FB::ShareableReference<NPJavascriptObject> > NPObjectWeakRef;
 
@@ -66,6 +67,9 @@ namespace FB { namespace Npapi {
         FB::DOM::ElementPtr getDOMElement();
         void evaluateJavaScript(const std::string &script);
         bool isSafari() const;
+        
+    public:
+        void shutdown();
 
     public:
         FB::variant getVariant(const NPVariant *npVar);
@@ -143,7 +147,7 @@ namespace FB { namespace Npapi {
 
         int ScheduleTimer(int interval, bool repeat, void(*func)(NPP npp, uint32_t timerID)) const;
         void UnscheduleTimer(int timerId) const;
-        };
+    };
 
     typedef boost::shared_ptr<NpapiBrowserHost> NpapiBrowserHostPtr;
     typedef boost::shared_ptr<const NpapiBrowserHost> NpapiBrowserHostConstPtr;

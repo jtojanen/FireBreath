@@ -100,6 +100,11 @@ NpapiBrowserHost::~NpapiBrowserHost(void)
 {
 }
 
+void NpapiBrowserHost::shutdown() {
+    memset(&NPNFuncs, 0, sizeof(NPNetscapeFuncs));
+    FB::BrowserHost::shutdown();
+}
+
 bool NpapiBrowserHost::_scheduleAsyncCall(void (*func)(void *), void *userData) const
 {
     if (isShutDown())
@@ -722,7 +727,8 @@ NPJavascriptObject* FB::Npapi::NpapiBrowserHost::getJSAPIWrapper( const FB::JSAP
     }
     if (!ret) {
         ret = NPJavascriptObject::NewObject(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), api, true);
-        m_cachedNPObject[ptr.get()] = ret->getWeakReference();
+        if (ret)
+            m_cachedNPObject[ptr.get()] = ret->getWeakReference();
     }
     return ret;
 }

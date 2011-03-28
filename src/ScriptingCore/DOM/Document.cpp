@@ -36,7 +36,7 @@ namespace FB
         // static
         DocumentPtr Document::create(const FB::JSObjectPtr& api)
         {
-            return api->host->_createDocument(api);
+            return api->getHost()->_createDocument(api);
         }
 
         WindowPtr Document::getWindow() const

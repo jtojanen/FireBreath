@@ -19,24 +19,22 @@ Copyright 2010 Anson MacKeracher, Firebreath development team
 #include "PluginWindowMac.h"
 
 namespace FB
-    {
+{
     class PluginWindowMacCA: public PluginWindowMac
     {
     public:
-        PluginWindowMacCA(bool invalidating);
+        PluginWindowMacCA();
         virtual ~PluginWindowMacCA();
 
         NPError SetWindow(NPWindow* window);
+        int16_t GetValue(NPPVariable variable, void *value);
 
         DrawingModel getDrawingModel() const { return DrawingModelCoreAnimation; }
         void* getDrawingPrimitive() const { return m_layer; }
         WindowRef getWindowRef() const { return NULL; }
 
-        void InvalidateWindow() const;
-
-    private:
+    protected:
         void* m_layer;
-        bool m_invalidating;        
     };
 };
 #endif // H_PLUGINWINDOWMACCA

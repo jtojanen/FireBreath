@@ -38,7 +38,7 @@ namespace FB
         // static
         ElementPtr Element::create(const FB::JSObjectPtr& api)
         {
-            return api->host->_createElement(api);
+            return api->getHost()->_createElement(api);
         }
 
         std::string Element::getInnerHTML() const

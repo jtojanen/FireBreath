@@ -30,14 +30,13 @@ namespace FB { namespace Npapi {
         NpapiPluginMac(const NpapiBrowserHostPtr &host, const std::string& mimetype);
         virtual ~NpapiPluginMac(void);
         
+        void init(NPMIMEType pluginType, int16_t argc, char* argn[], char *argv[]);
+
     protected:
         NPEventModel m_eventModel;
         NPDrawingModel m_drawingModel;
         FB::PluginWindowMacPtr pluginWin;
         FB::PluginEventMacPtr pluginEvt;
-#if FBMAC_USE_COREANIMATION
-        void* m_layer;
-#endif
     public:
         // These calls are proxied from the NpapiPluginModule to this object, and are
         // the NPP_ functions given to the browser; essentially, the entrypoints for the
