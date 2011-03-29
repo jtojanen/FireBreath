@@ -448,9 +448,9 @@ namespace FB { namespace ActiveX {
                 BOOST_ASSERT(pdp->cArgs >= pdp->cNamedArgs);
                 if (pdp->cArgs > pdp->cNamedArgs) {
                     params.reserve(pdp->cArgs - pdp->cNamedArgs);
-                    for (unsigned u = pdp->cArgs - 1;
-                        u >= pdp->cNamedArgs; --u) {
-                            params.push_back(m_host->getVariant(&pdp->rgvarg[u]));
+                    for (int i = pdp->cArgs - 1;
+                        i >= static_cast<int>(pdp->cNamedArgs); --i) {
+                            params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
                 }
 
