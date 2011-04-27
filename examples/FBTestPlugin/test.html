@@ -36,6 +36,7 @@
             width: 600px;
             height: 300px;
             float: left;
+            overflow:auto;
         }
     
         #testResults ul
@@ -82,6 +83,17 @@
             dest[0].innerHTML = html;
         }
 
+        function dangerousInjection(dest, callback) {
+            pluginCB = callback;
+            var paramNode = document.createElement("param");
+            paramNode.setAttribute("name", "onload");
+            paramNode.setAttribute("value", "pluginCB");
+            var pluginObjectNode = document.createElement("object");
+            pluginObjectNode.appendChild(paramNode);
+            pluginObjectNode.setAttribute("type", mimeType);
+            dest.appendChild(pluginObjectNode);
+        }
+
         function addTest(id, text) {
             $("#testResults ul")
                 .append("<li id='" + id + "'>" + text + "...</li>")
@@ -109,9 +121,13 @@
             addTest("mathApiAdd", "Use custom JSAPI coming in from script");
             addTest("countArray", "Count array length returned from JSAPI object");
             addTest("simpleFireEvent", "Simple event bind and fire test");
+            addTest("attachedFireEvent", "Simple event bind attach and fire test");
             addTest("dialog", "Dialog callback test");
             addTest("getURL", "Download stream (GET)");
-            addTest("postURL", "Download stream (POST)");            
+            addTest("postURL", "Download stream (POST)");
+            //addTest("dangerousInject", "Dangerous injection");
+            addTest("calltest", "Function.call method");
+            addTest("applytest", "Function.apply method");
             markFailed("loaded");
             injectPlugin($("#pluginContainer"), pluginLoaded);
         }
@@ -216,6 +232,18 @@
                     markFailed("simpleFireEvent");
                 }
             };
+            var tmpFired = function (str) {
+                if (str == "some string") {
+                    markPassed("attachedFireEvent");
+                } else {
+                    markFailed("attachedFireEvent");
+                }
+            }
+            if (plugin.attachEvent) {
+                plugin.attachEvent("onfired", tmpFired);
+            } else {
+                plugin.addEventListener("fired", tmpFired, false);
+            }
             plugin.testEvent("some string");
 
             try {
@@ -240,7 +268,7 @@
                 } else {
                     markFailed("getURL");
                 }
-				alert("getUrlCallback: " + success + "\r\nHeaders: " + outheaders + "\r\nDataLen: " + data.lenght);
+				//alert("getUrlCallback: " + success + "\r\nHeaders: " + outheaders + "\r\nDataLen: " + data.lenght);
 			}
 			plugin.getURL(sUrl, getUrlCallback);
 
@@ -253,9 +281,31 @@
                 } else {
                     markFailed("postURL");
                 }
-				alert("postUrlCallback: " + success + "\r\nHeaders: " + outheaders + "\r\nDataLen: " + data.lenght);
+				//alert("postUrlCallback: " + success + "\r\nHeaders: " + outheaders + "\r\nDataLen: " + data.lenght);
 			}
-			plugin.postURL(sUrl, sPostData, postUrlCallback);            
+            plugin.postURL(sUrl, sPostData, postUrlCallback);
+
+            //testDiv = document.getElementById("test");
+            //var testcb = function(nplug) {
+                //if (nplug.valid) {
+                    //markPassed("dangerousInject");
+                //} else {
+                    //markFailed("dangerousInject");
+                //}
+                //testDiv.innerHTML = "";
+            //}
+            //dangerousInjection(testDiv, testcb);
+
+            if (plugin.add.apply(window, [1, 2]) == 3) {
+                markPassed("applytest");
+            } else {
+                markFailed("applytest");
+            }
+            if (plugin.add.call(window, 1, 2) == 3) {
+                markPassed("calltest");
+            } else {
+                markFailed("calltest");
+            }
         }
         function PasswordDlg(message, onComplete) 
         {
@@ -326,5 +376,6 @@
         <ul>
         </ul>
     </div>
+    <div id="test"></div>
 </body>
 </html>

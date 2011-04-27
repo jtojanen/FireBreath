@@ -1,23 +1,21 @@
+
 /**********************************************************\
-Original Author: Georg Fritzsche
+ Original Author: Georg Fritzsche
  
-Created:    Nov 7, 2010
-License:    Dual license model; choose one of two:
-            New BSD License
-            http://www.opensource.org/licenses/bsd-license.php
-            - or -
-            GNU Lesser General Public License, version 2.1
-            http://www.gnu.org/licenses/lgpl-2.1.html
+ Created:    Nov 7, 2010
+ License:    Dual license model; choose one of two:
+ New BSD License
+ http://www.opensource.org/licenses/bsd-license.php
+ - or -
+ GNU Lesser General Public License, version 2.1
+ http://www.gnu.org/licenses/lgpl-2.1.html
  
-Copyright 20100 Georg Fritzsche, Firebreath development team
-\**********************************************************/
+ Copyright 20100 Georg Fritzsche, Firebreath development team
+ \**********************************************************/
 
-#ifndef FB_H_CCOMVARIANTUTIL
-#define FB_H_CCOMVARIANTUTIL
-
-#if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
-#endif
+#ifndef FB_H_CComVariantUTIL
+#define FB_H_CComVariantUTIL
 
 #include <map>
 #include <string>
@@ -38,251 +36,296 @@ Copyright 20100 Georg Fritzsche, Firebreath development team
 #include "AXDOM/Document.h"
 #include "AXDOM/Element.h"
 #include "AXDOM/Node.h"
-#include "IDispatchAPI.h"
+#include <atlsafe.h>
 
-// TODO(jtojanen): temporary addition, win_common.h is the right place for this
-#include <comdef.h>
-
-#include "./com_utils.h"
-
-namespace FB {
-    namespace ActiveX {
-        struct type_info_less
+namespace FB { namespace ActiveX
+{    
+    struct type_info_less
+    {
+        bool operator() (const std::type_info* const lhs, const std::type_info* const rhs) const
         {
-            bool operator()(
-                const std::type_info* const lhs,
-                const std::type_info* const rhs) const
-            {
-                return lhs->before(*rhs) ? true : false;
+            return lhs->before(*rhs) ? true : false;
+        }
+    };
+    
+    typedef CComVariant (*ComVariantBuilder)(const ActiveXBrowserHostPtr&, const FB::variant&);    
+    typedef std::map<std::type_info const*, ComVariantBuilder, type_info_less> ComVariantBuilderMap;
+	//  GJS  ---
+	//  I would probably put the ComVariantBuilderMap code into ComVariantUtil.cpp?
+    template<class T>
+    ComVariantBuilderMap::value_type makeBuilderEntry()
+    {
+        return ComVariantBuilderMap::value_type(&typeid(T), select_ccomvariant_builder::select<T>());
+    }
+    
+    ComVariantBuilderMap makeComVariantBuilderMap()
+    {
+        ComVariantBuilderMap tdm;
+        tdm.insert(makeBuilderEntry<bool>());
+        tdm.insert(makeBuilderEntry<char>());
+        tdm.insert(makeBuilderEntry<unsigned char>());
+        tdm.insert(makeBuilderEntry<short>());
+        tdm.insert(makeBuilderEntry<unsigned short>());
+        tdm.insert(makeBuilderEntry<int>());
+        tdm.insert(makeBuilderEntry<unsigned int>());
+        tdm.insert(makeBuilderEntry<long>());
+        tdm.insert(makeBuilderEntry<unsigned long>());
+        
+#ifndef BOOST_NO_LONG_LONG
+        tdm.insert(makeBuilderEntry<long long>());
+        tdm.insert(makeBuilderEntry<unsigned long long>());
+#endif
+        
+        tdm.insert(makeBuilderEntry<float>());
+        tdm.insert(makeBuilderEntry<double>());
+        
+        tdm.insert(makeBuilderEntry<std::string>());
+        tdm.insert(makeBuilderEntry<std::wstring>());
+        
+        tdm.insert(makeBuilderEntry<FB::VariantList>());
+        tdm.insert(makeBuilderEntry<FB::VariantMap>());
+        tdm.insert(makeBuilderEntry<FB::JSAPIPtr>());
+        tdm.insert(makeBuilderEntry<FB::JSAPIWeakPtr>());
+        tdm.insert(makeBuilderEntry<FB::JSObjectPtr>());
+
+        tdm.insert(makeBuilderEntry<FB::FBVoid>());
+        tdm.insert(makeBuilderEntry<FB::FBNull>());
+        
+        return tdm;
+    }
+    
+    const ComVariantBuilderMap& getComVariantBuilderMap()
+    {
+        static const ComVariantBuilderMap tdm = makeComVariantBuilderMap();
+        return tdm;
+    }
+	//  GJS  ---
+    
+    template<class T>
+    CComVariant makeArithmeticComVariant(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        return var.convert_cast<T>();
+    }
+
+    template<> inline
+    CComVariant makeArithmeticComVariant<char>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        return var.cast<char>();
+    }
+
+    template<> inline
+    CComVariant makeArithmeticComVariant<unsigned char>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        return var.cast<unsigned char>();
+    }
+
+    template<class T> 
+    CComVariant makeComVariant(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant out;
+        out.ChangeType(VT_NULL);
+        return out;
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::FBNull>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant out;
+        out.ChangeType(VT_NULL);
+        return out;
+    }
+
+    template<> inline
+    CComVariant makeComVariant<FB::FBVoid>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant out; // Just leave it at VT_EMPTY
+        return out;
+    }
+
+    template<> inline
+    CComVariant makeComVariant<std::string>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        std::wstring wstr = var.convert_cast<std::wstring>();
+        CComBSTR bStr(wstr.c_str());
+        return bStr;
+    }
+
+    template<> inline
+    CComVariant makeComVariant<std::wstring>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        std::wstring wstr = var.convert_cast<std::wstring>();
+        CComBSTR bStr(wstr.c_str());
+        return bStr;
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::VariantList>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+		//  GJS  ---
+		CComVariant outVar;
+		FB::VariantList inArr = var.cast<FB::VariantList>();
+		if (host->hasHTMLWindow())
+		{
+			FB::JSObjectPtr outArr = host->getDOMWindow()->createArray();
+			for (FB::VariantList::iterator it = inArr.begin(); it != inArr.end(); it++) {
+				FB::VariantList vl = boost::assign::list_of(*it);
+				outArr->Invoke("push", vl);
+			}
+			IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(outArr);
+			if (api) {
+				return api->getIDispatch();
+			} 
+		}
+		else
+		{
+			CComSafeArray<VARIANT> sa;
+			const ComVariantBuilderMap& builderMap = getComVariantBuilderMap();
+			for (FB::VariantList::iterator itr = inArr.begin(); itr != inArr.end(); itr++) {
+				const std::type_info& type = itr->get_type();
+				ComVariantBuilderMap::const_iterator found = builderMap.find(&type);
+
+				if (found == builderMap.end())
+					continue;
+
+				CComVariant var = (found->second)(host, *itr);
+				sa.Add(var);
+			}
+
+			outVar = sa.Detach();
+		}
+		return outVar;
+		//  GJS  ---
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::VariantMap>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+		//  GJS  ---
+		CComVariant outVar;
+		FB::VariantMap inMap = var.cast<FB::VariantMap>();
+		if (host->hasHTMLWindow())
+		{
+			FB::JSObjectPtr out = host->getDOMWindow()->createMap();
+			for (FB::VariantMap::iterator it = inMap.begin(); it != inMap.end(); it++) {
+				out->SetProperty(it->first, it->second);
+			}
+			IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(out);
+			if (api) {
+				outVar = api->getIDispatch();
+			}
+		}
+		else
+		{
+			CComSafeArray<VARIANT> sa;
+			const ComVariantBuilderMap& builderMap = getComVariantBuilderMap();
+			for (FB::VariantMap::iterator itr = inMap.begin(); itr != inMap.end(); itr++) {
+				const std::type_info& valType = itr->second.get_type();
+				ComVariantBuilderMap::const_iterator valTypeFound = builderMap.find(&valType);
+				if (valTypeFound == builderMap.end())
+					continue;
+
+				CComSafeArray<VARIANT> sa2;
+				CComVariant key = makeComVariant<std::string>(host, itr->first);
+				CComVariant val = (valTypeFound->second)(host, itr->second);
+				sa2.Add(key);
+				sa2.Add(val);
+				sa.Add(sa2.Detach());
+			}
+			if (sa.GetCount() > 0)
+				outVar = sa.Detach();
+		}
+        return outVar;
+		//  GJS  ---
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::JSAPIPtr>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant outVar;
+
+        FB::JSAPIPtr obj(var.cast<FB::JSAPIPtr>());
+        IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(obj);
+        if (api) {
+            outVar = api->getIDispatch();
+        } else {
+            if (obj) {
+                // Add obj to the list of shared_ptrs that browserhost keeps
+                host->retainJSAPIPtr(obj);
+                outVar = host->getJSAPIWrapper(obj, true);
+                outVar.pdispVal->Release();
+            } else {
+                outVar.ChangeType(VT_NULL);
             }
-        };
-
-        typedef const _variant_t (*ComVariantBuilder)(
-            const ActiveXBrowserHostPtr&, const variant&);
-
-        typedef std::map<
-            std::type_info const*,
-            ComVariantBuilder,
-            type_info_less> ComVariantBuilderMap;
-
-        template<class T> const _variant_t makeArithmeticComVariant(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            return var.convert_cast<T>();
         }
 
-        template<> inline const _variant_t makeArithmeticComVariant<char>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            return var.cast<char>();
+        return outVar;
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::JSAPIWeakPtr>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant outVar;
+
+        FB::JSAPIPtr obj(var.convert_cast<FB::JSAPIPtr>());
+        IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(obj);
+        if (api) {
+            outVar = api->getIDispatch();
+        } else {
+            if (obj) {
+                outVar = host->getJSAPIWrapper(obj);
+                outVar.pdispVal->Release();
+            } else {
+                outVar.ChangeType(VT_NULL);
+            }
         }
 
-        template<> inline const _variant_t
-            makeArithmeticComVariant<unsigned char>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            return var.cast<unsigned char>();
+        return outVar;
+    }
+    
+    template<> inline
+    CComVariant makeComVariant<FB::JSObjectPtr>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    {
+        CComVariant outVar;
+
+        FB::JSObjectPtr obj(var.cast<FB::JSObjectPtr>());
+        IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(obj);
+        if (api) {
+            outVar = api->getIDispatch();
+        } else {
+            if (obj) {
+                FB::JSAPIPtr ptr(var.convert_cast<FB::JSAPIPtr>());
+                host->retainJSAPIPtr(ptr);
+                outVar = getFactoryInstance()->createCOMJSObject(host, ptr);
+                outVar.pdispVal->Release();
+            } else {
+                outVar.ChangeType(VT_NULL);
+            }
         }
 
-        template<class T> const _variant_t makeComVariant(
-            const ActiveXBrowserHostPtr& host, const variant& var)
+        return outVar;
+    }
+    
+    namespace select_ccomvariant_builder
+    {        
+        template<class T>
+        ComVariantBuilder isArithmetic(const boost::true_type& /* is_arithmetic */)
         {
-            // TODO(jtojanen): could/should this be VT_EMPTY?
-            _variant_t result;
-            V_VT(&result) = VT_NULL;
-            return result;
+            return &makeArithmeticComVariant<T>;
         }
-
-        template<> inline const _variant_t makeComVariant<FBNull>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
+        
+        template<class T>
+        ComVariantBuilder isArithmetic(const boost::false_type& /* is_arithmetic */)
         {
-            _variant_t result;
-            V_VT(&result) = VT_NULL;
-            return result;
+            return &makeComVariant<T>;
         }
-
-        template<> inline const _variant_t makeComVariant<FBVoid>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
+        
+        template<class T>
+        ComVariantBuilder select()
         {
-            // just leave it at VT_EMPTY
-            return _variant_t();
-        }
-
-        template<> inline const _variant_t makeComVariant<std::string>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            std::wstring tmp(var.convert_cast<std::wstring>());
-            return _variant_t(tmp.c_str());
-        }
-
-        template<> inline const _variant_t makeComVariant<std::wstring>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            std::wstring tmp(var.convert_cast<std::wstring>());
-            return _variant_t(tmp.c_str());
-        }
-
-        template<> inline const _variant_t makeComVariant<VariantList>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            using boost::static_pointer_cast;
-
-            const VariantList inArray(var.cast<VariantList>());
-            JSObjectPtr outArray(host->getDOMWindow()->createArray());
-            for (VariantList::const_iterator it = inArray.begin(),
-                end = inArray.end(); it != end; ++it) {
-                    VariantList args(boost::assign::list_of(*it));
-                    outArray->Invoke("push", args);
-            }
-
-            // This works as JSObject is implemented by IDispatchAPI or
-            //  NPObjectAPI, and currently implementations don't mix
-            // We could "visit" implementation to obtain actual type
-            //  (visition should be implemented in JSAPI interface)
-            const IDispatchAPIPtr dispatchAPI(
-                static_pointer_cast<IDispatchAPI>(outArray));
-            return _variant_t(dispatchAPI->getIDispatch());
-        }
-
-        template<> inline const _variant_t makeComVariant<VariantMap>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            using boost::static_pointer_cast;
-
-            const VariantMap inMap(var.cast<VariantMap>());
-            JSObjectPtr outMap(host->getDOMWindow()->createMap());
-            for (VariantMap::const_iterator it = inMap.begin(),
-                end = inMap.end(); it != end; ++it) {
-                    outMap->SetProperty(it->first, it->second);
-            }
-
-            // This works as JSObject is implemented by IDispatchAPI or
-            //  NPObjectAPI, and currently implementations don't mix
-            // We could "visit" implementation to obtain actual type
-            //  (visition should be implemented in JSAPI interface)
-            const IDispatchAPIPtr dispatchAPI(
-                static_pointer_cast<IDispatchAPI>(outMap));
-            return _variant_t(dispatchAPI->getIDispatch());
-        }
-
-        template<> inline const _variant_t makeComVariant<JSAPIPtr>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            using boost::get_pointer;
-            using boost::static_pointer_cast;
-            using com::IDispatchExPtr;
-
-            const JSAPIPtr jsapi(var.cast<JSAPIPtr>());
-            if (!jsapi) {
-                _variant_t null;
-                V_VT(&null) = VT_NULL;
-                return null;
-            }
-
-            const JSObjectPtr jsobject(jsapi->getJSObject());
-            if (jsobject) {
-                // This works as JSObject is implemented by IDispatchAPI or
-                //  NPObjectAPI, and currently implementations don't mix
-                // We could "visit" implementation to obtain actual type
-                //  (visition should be implemented in JSAPI interface)
-                const IDispatchAPIPtr dispatchAPI(
-                    static_pointer_cast<IDispatchAPI>(jsobject));
-                return _variant_t(dispatchAPI->getIDispatch());
-            }
-
-            const IDispatchExPtr dispatchEx(
-                host->getJSAPIWrapper(jsapi, true));
-            if (!dispatchEx) {
-                _variant_t null;
-                V_VT(&null) = VT_NULL;
-                return null;
-            }
-
-            // Add object to the list of shared_ptrs that browserhost keeps
-            host->retainJSAPIPtr(jsapi);
-            return _variant_t(get_pointer(dispatchEx));
-        }
-
-        template<> inline const _variant_t makeComVariant<JSAPIWeakPtr>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            using boost::get_pointer;
-            using boost::static_pointer_cast;
-            using com::IDispatchExPtr;
-
-            const FB::JSAPIPtr jsapi(var.convert_cast<FB::JSAPIPtr>());
-            if (!jsapi) {
-                _variant_t null;
-                V_VT(&null) = VT_NULL;
-                return null;
-            }
-
-            const JSObjectPtr jsobject(jsapi->getJSObject());
-            if (jsobject) {
-                // This works as JSObject is implemented by IDispatchAPI or
-                //  NPObjectAPI, and currently implementations don't mix
-                // We could "visit" implementation to obtain actual type
-                //  (visition should be implemented in JSAPI interface)
-                const IDispatchAPIPtr dispatchAPI(
-                    static_pointer_cast<IDispatchAPI>(jsobject));
-                return _variant_t(dispatchAPI->getIDispatch());
-            }
-
-            const IDispatchExPtr dispatchEx(host->getJSAPIWrapper(jsapi));
-            if (!dispatchEx) {
-                _variant_t null;
-                V_VT(&null) = VT_NULL;
-                return null;
-            }
-
-            return _variant_t(get_pointer(dispatchEx));
-        }
-
-        template<> inline const _variant_t makeComVariant<JSObjectPtr>(
-            const ActiveXBrowserHostPtr& host, const variant& var)
-        {
-            using boost::static_pointer_cast;
-
-            const JSObjectPtr jsobject(var.cast<JSObjectPtr>());
-            if (!jsobject) {
-                _variant_t null;
-                V_VT(&null) = VT_NULL;
-                return null;
-            }
-
-            // This works as JSObject is implemented by IDispatchAPI or
-            //  NPObjectAPI, and currently implementations don't mix
-            // We could "visit" implementation to obtain actual type
-            //  (visition should be implemented in JSAPI interface)
-            const IDispatchAPIPtr dispatchAPI(
-                static_pointer_cast<IDispatchAPI>(jsobject));
-            return _variant_t(dispatchAPI->getIDispatch());
-        }
-
-        namespace select_ccomvariant_builder
-        {
-            template<class T>
-            ComVariantBuilder isArithmetic(
-                const boost::true_type& /* is_arithmetic */)
-            {
-                return &makeArithmeticComVariant<T>;
-            }
-
-            template<class T>
-            ComVariantBuilder isArithmetic(
-                const boost::false_type& /* is_arithmetic */)
-            {
-                return &makeComVariant<T>;
-            }
-
-            template<class T>
-            ComVariantBuilder select()
-            {
-                return isArithmetic<T>(boost::is_arithmetic<T>());
-            }
+            return isArithmetic<T>(boost::is_arithmetic<T>());
         }
     }
-}
+} }
 
-#endif  // FB_H_CCOMVARIANTUTIL
+#endif
 

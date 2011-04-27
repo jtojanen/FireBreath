@@ -343,7 +343,7 @@ namespace FB { namespace ActiveX {
             FB::JSAPIPtr api(getAPI());
             if ((wsName == L"attachEvent") || (wsName == L"detachEvent")) {
                 *pid = AxIdMap.getIdForValue(wsName);
-            } else if (api->HasProperty(wsName) || api->HasMethod(wsName) || api->HasEvent(wsName)) {
+            } else if (api->HasProperty(wsName) || api->HasMethod(wsName)) {
                 *pid = AxIdMap.getIdForValue(wsName);
             } else {
                 *pid = -1;
@@ -396,11 +396,11 @@ namespace FB { namespace ActiveX {
             return DISP_E_MEMBERNOTFOUND;
         }
 
-        std::string name;
+        std::wstring wsName;
 
         try 
         {
-            name = AxIdMap.getValueForId<std::string>(id);
+            wsName = AxIdMap.getValueForId<std::wstring>(id);
 
             if (wFlags & DISPATCH_PROPERTYGET) {
                 if(!pvarRes)
@@ -418,21 +418,21 @@ namespace FB { namespace ActiveX {
                 }
             }
 
-            if (name == "attachEvent" || name == "detachEvent") {
+            if (wsName == L"attachEvent" || wsName == L"detachEvent") {
                 if (wFlags & DISPATCH_METHOD) {
                     std::vector<FB::variant> params;
                     for (int i = pdp->cArgs - 1; i >= 0; i--) {
                         params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
 
-                    if (name[0] == 'a') {
+                    if (wsName[0] == L'a') {
                         m_attachFunc->exec(params);
                     } else {
                         m_detachFunc->exec(params);
                     }
                 } else if (wFlags & DISPATCH_PROPERTYGET) {
                     FB::variant rVal;
-                    if (name[0] == 'a') {
+                    if (wsName[0] == L'a') {
                         rVal = m_attachFunc;
                     } else {
                         rVal = m_detachFunc;
@@ -440,71 +440,78 @@ namespace FB { namespace ActiveX {
                     m_host->getComVariant(pvarRes, rVal);
                 }
 
-            } else if (wFlags & DISPATCH_METHOD && (api->HasMethod(name) || !id) ) {
+            } else if (wFlags & DISPATCH_METHOD && (api->HasMethod(wsName) || !id) ) {
 
                 std::vector<FB::variant> params;
-
-                // ignore all named arguments
-                BOOST_ASSERT(pdp->cArgs >= pdp->cNamedArgs);
-                if (pdp->cArgs > pdp->cNamedArgs) {
-                    params.reserve(pdp->cArgs - pdp->cNamedArgs);
-                    for (int i = pdp->cArgs - 1;
-                        i >= static_cast<int>(pdp->cNamedArgs); --i) {
-                            params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                if (pdp->cNamedArgs > 0 && pdp->rgdispidNamedArgs[0] == DISPID_THIS) {
+                    if (id == 0)
+                        wsName = L"";
+                    for (int i = pdp->cArgs - 1; i >= 1; i--) {
+                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                    }
+                } else {
+                    for (int i = pdp->cArgs - 1; i >= 0; i--) {
+                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
                     }
                 }
-
-                // check if default function call
-                if (id == DISPID_VALUE) {
-                    name.clear();
-                }
-
-                FB::variant rVal = api->Invoke(name, params);                
-                if (pvarRes) {
+                FB::variant rVal;
+                rVal = api->Invoke(wsName, params);
+                
+                if(pvarRes)
                     m_host->getComVariant(pvarRes, rVal);
-                }
 
-            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasMethod(name)) {
+            } else if (wFlags & DISPATCH_CONSTRUCT) {
+
+                std::vector<FB::variant> params;
+                if (pdp->cNamedArgs > 0 && pdp->rgdispidNamedArgs[0] == DISPID_THIS) {
+                    if (id == 0)
+                        wsName = L"";
+                    for (int i = pdp->cArgs - 1; i >= 1; i--) {
+                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                    }
+                } else {
+                    for (int i = pdp->cArgs - 1; i >= 0; i--) {
+                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                    }
+                }
+                FB::variant rVal;
+                rVal = api->Construct(params);
+                
+                if(pvarRes)
+                    m_host->getComVariant(pvarRes, rVal);
+
+
+            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasMethod(wsName)) {
 
                 FB::variant rVal;
-                if (api->HasMethodObject(name))
-                    rVal = api->GetMethodObject(name);
+                if (api->HasMethodObject(wsName))
+                    rVal = api->GetMethodObject(wsName);
                 else
                     rVal = true;
                 m_host->getComVariant(pvarRes, rVal);
 
-            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasProperty(name)) {
+            } else if (wFlags & DISPATCH_PROPERTYGET && api->HasProperty(wsName)) {
 
                 if(!pvarRes)
                     return E_INVALIDARG;
 
-                FB::variant rVal = api->GetProperty(name);
+                FB::variant rVal = api->GetProperty(wsName);
 
                 m_host->getComVariant(pvarRes, rVal);
 
-            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasEvent(name)) {
-                
-                FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
-                if (newVal.empty()) {
-                    api->setDefaultEventMethod(name, FB::JSObjectPtr());
-                } else {
-                    FB::JSObjectPtr method(newVal.cast<FB::JSObjectPtr>());
-                    api->setDefaultEventMethod(name, method);
-                }
-
-            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasProperty(name)) {
+            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasProperty(wsName)) {
 
                 FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
-                api->SetProperty(name, newVal);
+                api->SetProperty(wsName, newVal);
 
             } else {
                 throw FB::invalid_member("Invalid method or property name");
             }
         } catch (const FB::invalid_member&) {
-            FBLOG_INFO("JSAPI_IDispatchEx", "No such member: \"" << name << "\"");
+            FBLOG_INFO("JSAPI_IDispatchEx", "No such member: \"" << FB::wstring_to_utf8(wsName) << "\"");
             return DISP_E_MEMBERNOTFOUND;
         } catch (const FB::script_error& se) {
-            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << name << "\": " << se.what());
+            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << FB::wstring_to_utf8(wsName) << "\": " << se.what());
             if (pei != NULL) {
                 pei->bstrSource = CComBSTR(m_mimetype.c_str()).Detach();
                 pei->bstrDescription = CComBSTR(se.what()).Detach();
@@ -529,7 +536,29 @@ namespace FB { namespace ActiveX {
     template <class T, class IDISP, const IID* piid>
     HRESULT JSAPI_IDispatchEx<T,IDISP,piid>::DeleteMemberByDispID(DISPID id)
     {
-        return E_NOTIMPL;
+        FB::JSAPIPtr api;
+        try {
+            api = getAPI();
+        } catch (...) {
+            return S_FALSE;
+        }
+        if (!AxIdMap.idExists(id)) {
+            return S_FALSE;
+        }
+
+        std::wstring wsName;
+        try 
+        {
+            wsName = AxIdMap.getValueForId<std::wstring>(id);
+            api->RemoveProperty(wsName);
+        } catch (const FB::script_error& se) {
+            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << FB::wstring_to_utf8(wsName) << "\": " << se.what());
+            return S_FALSE;
+        } catch (...) {
+            return S_FALSE;
+        }
+
+        return S_OK;
     }
 
     template <class T, class IDISP, const IID* piid>

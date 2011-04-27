@@ -99,8 +99,12 @@ target_link_libraries(${PROJECT_NAME}
 
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "FireBreath Core")
 
-if (NOT WITH_SYSTEM_BOOST)
-	export(TARGETS ScriptingCore ${Boost_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
-else()
-	export(TARGETS ScriptingCore APPEND FILE ${FB_EXPORT_FILE})
+export(TARGETS ScriptingCore APPEND FILE ${FB_EXPORT_FILE})
+if (FB_RELEASE)
+    install (TARGETS ScriptingCore
+        EXPORT FireBreath_Exports
+        DESTINATION bin/\${BUILD_TYPE}
+        COMPONENT FBCORE
+        )
 endif()
+

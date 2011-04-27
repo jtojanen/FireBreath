@@ -82,59 +82,61 @@ namespace
         }
     }
 
-    struct NpapiPDataHolder
+    class NpapiPDataHolder
     {
-        NpapiBrowserHostPtr host;
-        boost::shared_ptr<NpapiPlugin> plugin;
-        FB::SafeQueue< FB::AsyncFunctionCallPtr > asyncFunctionQueue;
-
+    private:
+        NpapiBrowserHostPtr m_host;
+        boost::shared_ptr<NpapiPlugin> m_plugin;
+        
+    public:
         NpapiPDataHolder(NpapiBrowserHostPtr host, boost::shared_ptr<NpapiPlugin> plugin)
-          : host(host), plugin(plugin) {}
-        ~NpapiPDataHolder() {}
+          : m_host(host), m_plugin(plugin)
+        {
+#ifdef FB_MACOSX
+            FB::OneShotManager::getInstance().npp_register(m_host->getContextID());
+#endif          
+        }
+        ~NpapiPDataHolder() {
+#ifdef FB_MACOSX
+            FB::OneShotManager::getInstance().npp_unregister(m_host->getContextID());
+#endif        
+        }
+
+        NpapiBrowserHostPtr getHost() const {
+            return m_host;
+        }
+        NpapiPluginPtr getPlugin() const {
+            return m_plugin;
+        }
     };
-
-    
-
-    NpapiPDataHolder* getHolder(NPP instance)
-    {   
-        return static_cast<NpapiPDataHolder*>(instance->pdata);
-    }
-
-    NpapiBrowserHostPtr getHost(NPP instance)
-    {
-        return static_cast<NpapiPDataHolder*>(instance->pdata)->host;
-    }
 
     bool validInstance(NPP instance)
     {
         return instance != NULL && instance->pdata != NULL;
     }
-    
-    void asyncCallbackFunction(void* npp, uint32_t timerID)
-    {
-        boost::shared_ptr<FB::AsyncFunctionCall> evt;
-        NpapiPDataHolder *holder = getHolder(static_cast<NPP>(npp));
-        while (holder->asyncFunctionQueue.try_pop(evt)) {
-            evt->func(evt->userData);
-        }
-    }    
+
+    NpapiPDataHolder* getHolder(NPP instance)
+    {   
+        if (validInstance(instance))
+            return static_cast<NpapiPDataHolder*>(instance->pdata);
+        return NULL;
+    }
 }
 
 NpapiPluginPtr FB::Npapi::getPlugin(NPP instance)
 {
-    return static_cast<NpapiPDataHolder*>(instance->pdata)->plugin;
+    if (NpapiPDataHolder* holder = getHolder(instance))
+        return holder->getPlugin();
+    return NpapiPluginPtr();
 }
 
-
-// This is used on mac snow leopard safari
-void NpapiPluginModule::scheduleAsyncCallback(NPP npp, void (*func)(void *), void *userData)
-{
-    getHolder(npp)->asyncFunctionQueue.push(FB::AsyncFunctionCallPtr(new FB::AsyncFunctionCall(func, userData)));
-    //getHost(npp)->ScheduleTimer(0, false, &asyncCallbackFunction);
 #ifdef FB_MACOSX
-    OneShotManager::getInstance().push(npp, &asyncCallbackFunction);
-#endif
+// This is used on mac snow leopard safari
+void NpapiPluginModule::scheduleAsyncCallback(NPP instance, void (*func)(void *), void *userData)
+{
+    FB::OneShotManager::getInstance().npp_scheduleAsyncCallback(instance, func, userData);
 }
+#endif
 
 NpapiPluginModule *NpapiPluginModule::Default = NULL;
 
@@ -189,23 +191,30 @@ NPError NpapiPluginModule::NPP_New(NPMIMEType pluginType, NPP instance, uint16_t
 
 NPError NpapiPluginModule::NPP_Destroy(NPP instance, NPSavedData** save)
 {
-#ifdef FB_MACOSX
-    OneShotManager::getInstance().clear(instance);
-#endif
-    if (NpapiBrowserHostPtr host = getHost(instance)) {
-        host->shutdown();
-    }
     if (!validInstance(instance)) {
         return NPERR_INVALID_INSTANCE_ERROR;
     }
+    NpapiBrowserHostWeakPtr weakHost;
+    
+    if (NpapiPDataHolder* holder = getHolder(instance)) {
+        NpapiBrowserHostPtr host(holder->getHost());
+        weakHost = host;
+        if (host)
+            host->shutdown();
 
-    if (NpapiPluginPtr plugin = getPlugin(instance)) {
-        plugin->shutdown();
+        if (NpapiPluginPtr plugin = holder->getPlugin())
+            plugin->shutdown();
+        
+        instance->pdata = NULL;
+        delete holder; // Destroy plugin
+        // host should be destroyed when it goes out of scope here
+    } else {    
+        return NPERR_GENERIC_ERROR;
     }
-
-    NpapiPDataHolder* tmp(getHolder(instance));
-    instance->pdata = NULL;
-    delete tmp;
+    // If this assertion fails, you probably have a circular reference
+    // to your BrowserHost object somewhere -- the host should be gone
+    // by this point. This assertion is warning you of a bug.
+    assert(weakHost.expired());
 
     return NPERR_NO_ERROR;
 }
@@ -329,7 +338,20 @@ NPError NpapiPluginModule::NPP_GetValue(NPP instance, NPPVariable variable, void
 {
     // These values may depend on the mimetype of the plugin
     if (!validInstance(instance)) {
-        return NPERR_INVALID_INSTANCE_ERROR;
+        switch (variable) {
+        case NPPVpluginNameString: {
+            static const std::string pluginName = getFactoryInstance()->getPluginName("");
+            *((const char **)value) = pluginName.c_str();
+            break; }
+        case NPPVpluginDescriptionString: {
+            // If nothing is instantiated, use the first description found
+            static const std::string pluginDesc = getFactoryInstance()->getPluginDescription("");
+            *((const char **)value) = pluginDesc.c_str();
+            break; }
+        default:
+            return NPERR_GENERIC_ERROR;
+        }
+        return NPERR_NO_ERROR;
     }
 
     if (NpapiPluginPtr plugin = getPlugin(instance)) {

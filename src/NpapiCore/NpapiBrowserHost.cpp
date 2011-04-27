@@ -103,6 +103,11 @@ NpapiBrowserHost::~NpapiBrowserHost(void)
 void NpapiBrowserHost::shutdown() {
     memset(&NPNFuncs, 0, sizeof(NPNetscapeFuncs));
     FB::BrowserHost::shutdown();
+    
+    // Release these now as the BrowserHost will be expired when the they go out of scope in the destructor.
+    m_htmlWin.reset();
+    m_htmlElement.reset();
+    m_htmlDoc.reset();
 }
 
 bool NpapiBrowserHost::_scheduleAsyncCall(void (*func)(void *), void *userData) const
@@ -123,12 +128,14 @@ void NpapiBrowserHost::setBrowserFuncs(NPNetscapeFuncs *pFuncs)
         GetValue(NPNVWindowNPObject, (void**)&window);
         GetValue(NPNVPluginElementNPObject, (void**)&element);
 
-        m_htmlWin = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(window, ptr_cast<NpapiBrowserHost>(shared_ptr())));
-        m_htmlElement = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(element, ptr_cast<NpapiBrowserHost>(shared_ptr())));
+        m_htmlWin = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(window, ptr_cast<NpapiBrowserHost>(shared_from_this())));
+        m_htmlElement = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(element, ptr_cast<NpapiBrowserHost>(shared_from_this())));
+        ReleaseObject(window);
+        ReleaseObject(element);
     } catch (...) {
-        if (window)
+        if (window && !m_htmlWin)
             ReleaseObject(window);
-        if (element)
+        if (element && !m_htmlElement)
             ReleaseObject(element);
     }
     if (m_htmlWin) {
@@ -238,7 +245,7 @@ FB::variant NpapiBrowserHost::getVariant(const NPVariant *npVar)
             break;
 
         case NPVariantType_Object:
-            retVal = JSObjectPtr(new NPObjectAPI(npVar->value.objectValue, ptr_cast<NpapiBrowserHost>(shared_ptr())));
+            retVal = JSObjectPtr(new NPObjectAPI(npVar->value.objectValue, ptr_cast<NpapiBrowserHost>(shared_from_this())));
             break;
 
         case NPVariantType_Void:
@@ -252,8 +259,24 @@ FB::variant NpapiBrowserHost::getVariant(const NPVariant *npVar)
 
 bool NpapiBrowserHost::isSafari() const
 {
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_6; en-us) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27
     std::string agent(UserAgent());
-    return boost::algorithm::contains(agent, "Safari");
+    return boost::algorithm::contains(agent, "Safari") && !isChrome();
+}
+
+bool NpapiBrowserHost::isFirefox() const
+{
+    // Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0) Gecko/20100101 Firefox/4.0
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.15) Gecko/20110303 Firefox/3.6.15 
+    std::string agent(UserAgent());
+    return boost::algorithm::contains(agent, "Firefox");
+}
+
+bool NpapiBrowserHost::isChrome() const
+{
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_6; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.204 Safari/534.16
+    std::string agent(UserAgent());
+    return boost::algorithm::contains(agent, "Chrome");
 }
 
 void NpapiBrowserHost::getNPVariant(NPVariant *dst, const FB::variant &var)
@@ -269,7 +292,7 @@ void NpapiBrowserHost::getNPVariant(NPVariant *dst, const FB::variant &var)
         return;
     }
     
-    *dst = (it->second)(FB::ptr_cast<NpapiBrowserHost>(shared_ptr()), var);
+    *dst = (it->second)(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), var);
 }
 
 NPError NpapiBrowserHost::GetURLNotify(const char* url, const char* target, void* notifyData) const
@@ -369,22 +392,16 @@ uint32_t NpapiBrowserHost::MemFlush(uint32_t size) const
 
 NPObject *NpapiBrowserHost::RetainObject(NPObject *npobj) const
 {
-    if (isShutDown())
-        return NULL;
     assertMainThread();
     return module->RetainObject(npobj);
 }
 void NpapiBrowserHost::ReleaseObject(NPObject *npobj) const
 {
-    if (isShutDown())
-        return;
     assertMainThread();
     return module->ReleaseObject(npobj);
 }
 void NpapiBrowserHost::ReleaseVariantValue(NPVariant *variant) const
 {
-    if (isShutDown())
-        return;
     assertMainThread();
     return module->ReleaseVariantValue(variant);
 }

@@ -26,27 +26,33 @@
 
 namespace FB
 {
+    typedef void (*OneShotCallback)(void*);
+    typedef std::pair<void*, OneShotCallback> SinkPair;
+    typedef std::deque<SinkPair> SinkQueue;
+    typedef std::map<void*,SinkQueue*> Sinks;
+
     class OneShotManager : public boost::noncopyable
     {
     public:
         ~OneShotManager();
         
-        typedef void (*OneShotCallback)(void*, uint32_t);
+        void npp_register(void* instance);
+        void npp_unregister(void* instance);
         
-        void push(void*, OneShotCallback);
-        void clear(void*);
+        void npp_scheduleAsyncCallback(void* instance, OneShotCallback func, void *userData);
         
-        void shoot();
+        void npp_asyncCallback();
         
         static OneShotManager& getInstance();
         
     private:
         OneShotManager();
-        
-        typedef std::pair<void*, OneShotCallback> SinkPair;
-        typedef FB::SafeQueue<SinkPair> SinkQueue;
-        SinkQueue m_sinks;
+        bool npp_nextCallback(SinkPair& callback);
+
         mutable boost::mutex m_mutex;
+        Sinks m_sinks;
+        void* m_helper;
+        bool m_shot;
     };
 }
 

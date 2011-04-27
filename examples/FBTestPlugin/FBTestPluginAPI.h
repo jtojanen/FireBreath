@@ -32,6 +32,8 @@ public:
     FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::BrowserHostPtr host);
     virtual ~FBTestPluginAPI();
 
+    FB_JSAPI_EVENT(fired, 1, (const std::string));
+
     FBTestPluginPtr getPlugin();
     
     ThreadRunnerAPIPtr createThreadRunner();

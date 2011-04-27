@@ -76,8 +76,11 @@ target_link_libraries(${PROJECT_NAME}
     PluginCore
     ScriptingCore
 )
-if (NOT WITH_SYSTEM_BOOST)
-	export(TARGETS ActiveXCore ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${LIBDL_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
-else()
-	export(TARGETS ActiveXCore ${CMAKE_THREAD_LIBS_INIT} ${LIBDL_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
+export(TARGETS ActiveXCore ${CMAKE_THREAD_LIBS_INIT} ${LIBDL_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
+if (FB_RELEASE)
+    install (TARGETS ActiveXCore
+        EXPORT FireBreath_Exports
+        DESTINATION bin/\${BUILD_TYPE}
+        COMPONENT FBCORE
+        )
 endif()
