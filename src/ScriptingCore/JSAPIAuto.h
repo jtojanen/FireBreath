@@ -112,7 +112,7 @@ namespace FB {
         JSAPIAuto(const SecurityZone& securityLevel, const std::string& description = "<JSAPI-Auto Secure Javascript Object>");
         typedef std::deque<SecurityZone> ZoneStack;
 
-        void init( );
+        void init();
 
         virtual ~JSAPIAuto();
 
@@ -374,6 +374,10 @@ namespace FB {
         bool m_allowDynamicAttributes;
         bool m_allowRemoveProperties;
         bool m_allowMethodObjects;
+    public:
+        static bool s_allowDynamicAttributes;
+        static bool s_allowRemoveProperties;
+        static bool s_allowMethodObjects;
     };
 
 };

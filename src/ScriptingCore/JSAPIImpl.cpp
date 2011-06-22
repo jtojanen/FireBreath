@@ -84,6 +84,7 @@ void JSAPIImpl::fireAsyncEvent( const std::string& eventName, const std::vector<
 {
     std::set<void*> contexts;
     {
+        boost::recursive_mutex::scoped_lock _l(m_eventMutex);
         EventContextMap::iterator it(m_eventMap.begin());
         EventContextMap::iterator end(m_eventMap.end());
         for (; it != end; ++it) {
@@ -117,12 +118,13 @@ void JSAPIImpl::fireAsyncEvent( const std::string& eventName, const std::vector<
 
     // Some events are registered as a jsapi object with a method of the same name as the event
     {
+        boost::recursive_mutex::scoped_lock _l(m_eventMutex);
         EventIfaceContextMap::iterator it(m_evtIfaces.begin());
         EventIfaceContextMap::iterator end(m_evtIfaces.end());
         for (; it != end; ++it) {
             if (contexts.find(it->first) != contexts.end())
                 continue; // We've already handled these
-            bool first(false);
+            bool first(true);
 
             for (EventIFaceMap::const_iterator ifaceIt = it->second.begin(); ifaceIt != it->second.end(); ++ifaceIt) {
                 if (first && ifaceIt->second->isValid() && ifaceIt->second->supportsOptimizedCalls()) {
@@ -147,6 +149,7 @@ void JSAPIImpl::FireEvent(const std::string& eventName, const std::vector<varian
 
     {
         JSAPIImplPtr self(shared_from_this());
+        boost::recursive_mutex::scoped_lock _l(m_proxyMutex);
         ProxyList::iterator proxyIt = m_proxies.begin();
         while (proxyIt != m_proxies.end()) {
             JSAPIImplPtr proxy(proxyIt->lock());
@@ -165,7 +168,12 @@ void JSAPIImpl::FireEvent(const std::string& eventName, const std::vector<varian
         }
     }
 
-    fireAsyncEvent(eventName, args);
+    try {
+        fireAsyncEvent(eventName, args);
+    } catch (const FB::script_error&) {
+        // a script_error can be fired during shutdown when this is called
+        // from another thread; this should not be an error
+    }
 }
 
 void JSAPIImpl::FireJSEvent( const std::string& eventName, const VariantMap &members, const VariantList &arguments )
@@ -175,6 +183,7 @@ void JSAPIImpl::FireJSEvent( const std::string& eventName, const VariantMap &mem
 
     {
         JSAPIImplPtr self(shared_from_this());
+        boost::recursive_mutex::scoped_lock _l(m_proxyMutex);
         ProxyList::iterator proxyIt = m_proxies.begin();
         while (proxyIt != m_proxies.end()) {
             JSAPIImplPtr proxy(proxyIt->lock());
@@ -193,11 +202,12 @@ void JSAPIImpl::FireJSEvent( const std::string& eventName, const VariantMap &mem
             proxyIt++;
         }
     }
-    
+
     VariantList args;
     args.push_back(CreateEvent(shared_from_this(), eventName, members, arguments));
 
     {
+        boost::recursive_mutex::scoped_lock _l(m_eventMutex);
         EventContextMap::iterator it(m_eventMap.begin());
         while (it != m_eventMap.end()) {
             std::pair<EventMultiMap::iterator, EventMultiMap::iterator> range = it->second.equal_range(eventName);
@@ -210,6 +220,7 @@ void JSAPIImpl::FireJSEvent( const std::string& eventName, const VariantMap &mem
 
     // Some events are registered as a jsapi object with a method of the same name as the event
     {
+        boost::recursive_mutex::scoped_lock _l(m_eventMutex);
         EventIfaceContextMap::iterator it(m_evtIfaces.begin());
         while (it != m_evtIfaces.end()) {
             for (EventIFaceMap::const_iterator ifaceIt = it->second.begin(); ifaceIt != it->second.end(); ifaceIt++) {
@@ -224,6 +235,7 @@ void JSAPIImpl::registerEventMethod(const std::string& name, JSObjectPtr &event)
     if (!event)
         throw invalid_arguments();
 
+    boost::recursive_mutex::scoped_lock _l(m_eventMutex);
     std::pair<EventMultiMap::iterator, EventMultiMap::iterator> range = m_eventMap[event->getEventContext()].equal_range(name);
 
     for (EventMultiMap::iterator it = range.first; it != range.second; it++) {
@@ -240,6 +252,7 @@ void JSAPIImpl::unregisterEventMethod(const std::string& name, JSObjectPtr &even
     if (!event)
         throw invalid_arguments();
 
+    boost::recursive_mutex::scoped_lock _l(m_eventMutex);
     std::pair<EventMultiMap::iterator, EventMultiMap::iterator> range = m_eventMap[event->getEventContext()].equal_range(name);
 
     for (EventMultiMap::iterator it = range.first; it != range.second; it++) {
@@ -252,11 +265,13 @@ void JSAPIImpl::unregisterEventMethod(const std::string& name, JSObjectPtr &even
 
 void JSAPIImpl::registerProxy( const JSAPIImplWeakPtr &ptr ) const
 {
+    boost::recursive_mutex::scoped_lock _l(m_proxyMutex);
     m_proxies.push_back(ptr);
 }
 
 void JSAPIImpl::unregisterProxy( const JSAPIImplPtr& ptr ) const
 {
+    boost::recursive_mutex::scoped_lock _l(m_proxyMutex);
     for (ProxyList::iterator it = m_proxies.begin(); it != m_proxies.end(); ++it) {
         JSAPIPtr cur(it->lock());
         if (!cur || ptr == cur)

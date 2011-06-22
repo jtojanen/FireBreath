@@ -530,8 +530,9 @@ bool ActiveXBindStatusCallback::GetInfo(DWORD which, std::string& result)
     CComPtr<IWinInetHttpInfo> httpInfo;
     if ( !FAILED(m_pbinding->QueryInterface( &httpInfo ) ) )
     {
-        ok = !FAILED( httpInfo->QueryInfo( which, &buffer[0], &bufferSize, &flags, 0 ) );
-        result = std::string( buffer.get(), bufferSize );
+        ok = ( S_OK == httpInfo->QueryInfo( which, &buffer[0], &bufferSize, &flags, 0 ) );
+        if( ok )
+            result = std::string( buffer.get(), bufferSize );
     }
     
     return ok;
@@ -558,7 +559,7 @@ bool ActiveXStreamRequest::start()
     std::wstring wideUrl( url.begin(), url.end() );
 
     if ( FAILED( ActiveXBindStatusCallback::Create( &bindStatusCallback, shared_from_this() )) ) return false;  
-    if ( FAILED( CreateURLMoniker(0, wideUrl.c_str(), &FMoniker) ) ) return false;
+    if ( FAILED( CreateURLMonikerEx(0, wideUrl.c_str(), &FMoniker, URL_MK_UNIFORM) ) ) return false;
     if ( FAILED( CreateAsyncBindCtx(0, bindStatusCallback, 0, &FBindCtx) ) ) return false;
     if ( FAILED( IsValidURL(FBindCtx, wideUrl.c_str(), 0) ) ) return false;
     HRESULT hr = FMoniker->BindToStorage(FBindCtx, 0, IID_IStream, (void**)&fstream);

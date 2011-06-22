@@ -99,8 +99,9 @@ function(_configure_template_foreach f_contents outputfile)
     set (file_contents ${f_contents} PARENT_SCOPE)
 endfunction()
 
-function(configure_template filename outputfile)
-    
+function(configure_template_force filename outputfile)
+    get_filename_component(outputfile "${outputfile}" ABSOLUTE)
+    get_filename_component(filename "${filename}" ABSOLUTE)
     #message ("Configuring template ${filename} to ${outputfile}")
     file(WRITE "${outputfile}" "")
     # Read the file into a loop
@@ -127,5 +128,24 @@ function(configure_template filename outputfile)
         endif()
         list(LENGTH file_contents linesLeft)
     endwhile()
+endfunction()
+
+function(configure_template filename outputfile)
+    get_filename_component(outputfile_name "${outputfile}" NAME)
+    if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/_tmp)
+        file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_tmp)
+    endif()
+
+    configure_template_force(${filename} ${CMAKE_CURRENT_BINARY_DIR}/_tmp/${outputfile_name})
+    if (EXISTS ${outputfile})
+        FILE(READ "${outputfile}" file_contents_1)
+    endif()
+    FILE(READ "${CMAKE_CURRENT_BINARY_DIR}/_tmp/${outputfile_name}" file_contents_2)
+
+    if (NOT file_contents_1 STREQUAL file_contents_2)
+        configure_file(${CMAKE_CURRENT_BINARY_DIR}/_tmp/${outputfile_name} ${outputfile})
+        message("Generating new ${outputfile}")
+    endif()
+    file(REMOVE ${CMAKE_CURRENT_BINARY_DIR}/_tmp/${outputfile_name})
 
 endfunction()

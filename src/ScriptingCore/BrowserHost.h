@@ -64,7 +64,7 @@ namespace FB
     /// @see NpapiBrowserHost
     /// @see ActiveXBrowserHost
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class BrowserHost : public boost::enable_shared_from_this<BrowserHost>
+    class BrowserHost : public boost::enable_shared_from_this<BrowserHost>, boost::noncopyable
     {
     public:
 
@@ -301,6 +301,30 @@ namespace FB
         virtual void evaluateJavaScript(const std::wstring &script);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn int delayedInvoke(const int delayms, const FB::JSObjectPtr& func,
+        ///                       const FB::VariantList& args, const std::string& fname = "");
+        ///
+        /// @brief  Executes the provided method object after a delay using window.setTimeout
+        ///
+        /// This is basically a wrapper for the Javascript setTimeout function that allows passing
+        /// parameters to the function you want called after a delay. This is used behind the scenes
+        /// by InvokeAsync with the delayms set to 0
+        ///
+        /// @param  delayms Delay time in milliseconds
+        /// @param  func    Javascript object (or function)
+        /// @param  args    Array of arguments to pass to the function
+        /// @param  fname   If provided, the func.fname method will be called instead of invoking
+        ///                 func as a function
+        /// @return id returned by setTimeout
+        ///
+        /// @since 1.5.2
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        int delayedInvoke(const int delayms, const FB::JSObjectPtr& func,
+                          const FB::VariantList& args, const std::string& fname = "");
+        FB::JSObjectPtr getDelayedInvokeDelegate();
+        virtual void initJS(const void* inst);
+        
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void htmlLog(const std::string& str)
         ///
         /// @brief  Sends a log message to the containing web page using Console.log (firebug)
@@ -308,6 +332,20 @@ namespace FB
         /// @param  str The log message to send to the browser. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void htmlLog(const std::string& str);
+        
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual void setEnableHtmlLog(const bool enabled = true)
+        ///
+        /// @brief  Enables or disables the htmlLog method
+        ///
+        /// @param  enabled true if html logging should be enabled
+        ///
+        /// @see htmlLog
+        /// @since 1.5.2
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void setEnableHtmlLog(const bool enabled = true) {
+            m_htmlLogEnabled = enabled;
+        }
         
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void shutdown()
@@ -407,6 +445,12 @@ namespace FB
         mutable std::list<FB::JSAPIPtr> m_retainedObjects;
         static volatile int InstanceCount;
         BrowserStreamManagerPtr m_streamMgr;
+        
+        // Indicates if html logging should be enabled (default true)
+        bool m_htmlLogEnabled;
+        
+        std::string unique_key;
+        std::string call_delegate;
     };
 
     

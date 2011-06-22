@@ -41,12 +41,12 @@ NpapiPlugin::~NpapiPlugin(void)
     }
 }
 
-void NpapiPlugin::setReady()
+bool NpapiPlugin::setReady()
 {
-    if (!m_isReady) {
-        pluginMain->setReady();
-        m_isReady = true;
-    }
+    bool rval = false;
+    if (!m_isReady)
+        rval = m_isReady = pluginMain->setReady();
+    return rval;
 }
 
 NPObject *NpapiPlugin::getScriptableObject()
@@ -98,7 +98,6 @@ void NpapiPlugin::init(NPMIMEType pluginType, int16_t argc, char* argn[], char *
 
 NPError NpapiPlugin::SetWindow(NPWindow* window)
 {
-    setReady();
     return NPERR_NO_ERROR;
 }
 
