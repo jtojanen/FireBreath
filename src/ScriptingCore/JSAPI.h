@@ -511,6 +511,18 @@ namespace FB
         /// @since 1.5
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual variant Construct(const std::vector<variant>& args) = 0;
+
+        const JSObjectPtr getJSObject()
+        {
+            return impl_getJSObject();
+        }
+
+    private:
+        friend class JSObject;
+        virtual const JSObjectPtr impl_getJSObject()
+        {
+            return JSObjectPtr();
+        }
     };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
