@@ -12,22 +12,21 @@ http://www.gnu.org/licenses/lgpl-2.1.html
 Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
-#include <string>
 #include <boost/assign.hpp>
 #include "./ActiveXBrowserHost.h"
 #include "./axstream.h"
-#include "./ComVariantUtil.h"
 #include "DOM/Document.h"
 #include "DOM/Window.h"
 #include "../ScriptingCore/AsyncFunctionCall.h"
 #include "Win/WinMessageWindow.h"
 #include "AXDOM/Window.h"
+#include "AXDOM/Document.h"
 #include "AXDOM/Element.h"
 #include "AXDOM/Node.h"
 
+#include "./ComVariantUtil.h"
 #include "ActiveXFactoryDefinitions.h"
-
-#include <utility>
+#include <boost/smart_ptr/make_shared.hpp>
 
 namespace FB
 {
@@ -125,12 +124,18 @@ namespace FB
 
         void ActiveXBrowserHost::initDOMObjects()
         {
-            if (!m_window) {
+            if (!m_window && htmlWindow2_) {
                 ActiveXBrowserHostPtr shared_this(
                     static_pointer_cast<ActiveXBrowserHost>(
                     shared_from_this()));
                 m_window = DOM::Window::create(
                     IDispatchAPI::create(htmlWindow2_.get(), shared_this));
+            }
+
+            if (!m_document && htmlDocument_) {
+                ActiveXBrowserHostPtr shared_this(
+                    static_pointer_cast<ActiveXBrowserHost>(
+                    shared_from_this()));
                 m_document = DOM::Document::create(
                     IDispatchAPI::create(htmlDocument_.get(), shared_this));
             }
