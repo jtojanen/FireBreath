@@ -13,11 +13,12 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
 #include "variant_list.h"
+#include "../precompiled_headers.h" // On windows, everything above this line in PCH
+#include "Node.h"
 #include "Element.h"
 #include "Document.h"
-#include "Window.h"
 
-#include <string>
+#include "Window.h"
 
 namespace FB
 {

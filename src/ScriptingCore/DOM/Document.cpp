@@ -12,8 +12,12 @@ License:    Dual license model; choose one of two:
 Copyright 2009 PacketPass, Inc and the Firebreath development team
 \**********************************************************/
 
-#include "Document.h"
+#include "variant.h"
+#include "variant_list.h"
 #include "Window.h"
+#include "../precompiled_headers.h" // On windows, everything above this line in PCH
+
+#include "Document.h"
 
 namespace FB
 {
