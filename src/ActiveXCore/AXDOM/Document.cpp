@@ -12,12 +12,12 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
-#include "DOM/Window.h"
-#include "Document.h"
 #include "IDispatchAPI.h"
+#include "DOM/Window.h"
+#include "DOM/Element.h"
 
-#include <string>
-#include <vector>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
+#include "Document.h"
 
 // TODO(jtojanen): temporary addition, win_common.h is the right place for this
 #include <comdef.h>

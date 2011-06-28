@@ -14,9 +14,9 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 
 #include "Document.h"
 #include "IDispatchAPI.h"
-#include "Window.h"
 
-#include <string>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
+#include "Window.h"
 
 // TODO(jtojanen): temporary addition, win_common.h is the right place for this
 #include <comdef.h>

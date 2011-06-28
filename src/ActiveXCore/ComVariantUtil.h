@@ -67,7 +67,7 @@ namespace FB {
             type_info_less> ComVariantBuilderMap;
 
 
-        const _variant_t createSafeArray(std::vector<_variant_t>& variants)
+        inline const _variant_t createSafeArray(std::vector<_variant_t>& variants)
         {
             // create array
             _variant_t result;

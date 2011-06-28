@@ -26,6 +26,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "PluginWindowWin.h"
 
 #include "ConstructDefaultPluginWindows.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 #define WM_ASYNCTHREADINVOKE    WM_USER + 1
 
@@ -39,6 +40,10 @@ FB::PluginWindowWin* FB::createPluginWindowWin(const FB::WindowContextWin& ctx)
 {
     return new PluginWindowWin(ctx);
 }
+
+#include <windowsx.h>
+//#define     SubclassWindow(hwnd, lpfn)       \
+//              ((WNDPROC)SetWindowLongPtr((hwnd), GWLP_WNDPROC, (LPARAM)(WNDPROC)(lpfn)))
 
 PluginWindowWin::PluginWindowWin(const WindowContextWin& ctx)
   : m_hWnd(ctx.handle)

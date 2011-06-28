@@ -31,5 +31,5 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 using namespace ATL;
 
-#include <windowsx.h>
+//#include <windowsx.h>
 

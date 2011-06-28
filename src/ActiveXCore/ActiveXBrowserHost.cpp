@@ -13,7 +13,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
 #include <boost/assign.hpp>
-#include "./ActiveXBrowserHost.h"
+#include <boost/smart_ptr/make_shared.hpp>
 #include "./axstream.h"
 #include "DOM/Document.h"
 #include "DOM/Window.h"
@@ -24,9 +24,10 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "AXDOM/Element.h"
 #include "AXDOM/Node.h"
 
-#include "./ComVariantUtil.h"
+#include "ComVariantUtil.h"
 #include "ActiveXFactoryDefinitions.h"
-#include <boost/smart_ptr/make_shared.hpp>
+#include "./ActiveXBrowserHost.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 namespace FB
 {
