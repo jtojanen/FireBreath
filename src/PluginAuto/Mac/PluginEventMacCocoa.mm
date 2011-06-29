@@ -56,10 +56,11 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
     switch(evt->type) {
         case NPCocoaEventDrawRect: {
             if (window->getDrawingModel() == PluginWindowMac::DrawingModelCoreGraphics) {
-                FB::Rect bounds = { evt->data.draw.y, evt->data.draw.x,
+                FB::Rect clipRect = { evt->data.draw.y, evt->data.draw.x,
                     evt->data.draw.y + evt->data.draw.height,
                     evt->data.draw.x + evt->data.draw.width };
-                CoreGraphicsDraw ev(evt->data.draw.context, bounds, bounds);
+                FB::Rect bounds = window->getWindowPosition();
+                CoreGraphicsDraw ev(evt->data.draw.context, bounds, clipRect);
                 return window->SendEvent(&ev);
             } else {
                 RefreshEvent ev;
@@ -144,11 +145,19 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
             break;
         }
 
+        case NPCocoaEventScrollWheel: {
+            double x = evt->data.mouse.pluginX;
+            double y = evt->data.mouse.pluginY;
+            MouseScrollEvent ev(x, y, evt->data.mouse.deltaX, evt->data.mouse.deltaY);
+            return window->SendEvent(&ev);
+            break;
+        }
+
         case NPCocoaEventKeyDown: {
             uint16_t key = (int)evt->data.key.keyCode;
             NSString* str = (NSString *)evt->data.key.charactersIgnoringModifiers;
-            char character = [[str lowercaseString] characterAtIndex:0];
-            KeyDownEvent ev(CocoaKeyCodeToFBKeyCode(key), character);
+            unsigned int character = [str characterAtIndex:0];
+            KeyDownEvent ev(CocoaKeyCodeToFBKeyCode(key), character, evt->data.key.modifierFlags);
             bool rtn = window->SendEvent(&ev);
             return rtn;
             break;
@@ -157,8 +166,8 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
         case NPCocoaEventKeyUp: {
             uint16_t key = (int)evt->data.key.keyCode;
             NSString* str = (NSString *)evt->data.key.charactersIgnoringModifiers;
-            char character = [[str lowercaseString] characterAtIndex:0];
-            KeyUpEvent ev(CocoaKeyCodeToFBKeyCode(key), character);
+            unsigned int character = [str characterAtIndex:0];
+            KeyUpEvent ev(CocoaKeyCodeToFBKeyCode(key), character, evt->data.key.modifierFlags);
             return window->SendEvent(&ev);
             break;
         }
@@ -176,12 +185,6 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
 
         case NPCocoaEventWindowFocusChanged: {
             // Not handled
-            break;
-        }
-
-        case NPCocoaEventScrollWheel: {
-            MouseScrollEvent ev(evt->data.mouse.deltaX, evt->data.mouse.deltaY);
-            return window->SendEvent(&ev);
             break;
         }
 

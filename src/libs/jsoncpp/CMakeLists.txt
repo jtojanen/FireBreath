@@ -28,6 +28,9 @@ endif()
 include_directories (
 	${CMAKE_CURRENT_SOURCE_DIR}/src
 	${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${FB_SCRIPTINGCORE_SOURCE_DIR}
+    ${FB_CONFIG_DIR}
+    ${Boost_INCLUDE_DIRS}
 )
 
 file (GLOB GENERAL_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -36,8 +39,16 @@ file (GLOB GENERAL_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     include/json/*.h
 )
 
+file (GLOB FB_HELPERS RELTAIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    *.cpp
+    *.h
+)
+
+SOURCE_GROUP("FB Helpers" FILES ${FB_HELPERS})
+
 list(APPEND SOURCES
     ${GENERAL_SRC}
+    ${FB_HELPERS}
 )
 
 if (NOT TARGET_ALREADY_EXISTS)
@@ -50,6 +61,5 @@ if (FIREBREATH)
 
     append_firebreath_include_dir(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-    export_project_dependencies()
     export_project_dependencies()
 endif()
