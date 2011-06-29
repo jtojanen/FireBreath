@@ -64,8 +64,8 @@ namespace FB {
         typedef std::map<
             std::type_info const*,
             ComVariantBuilder,
-            type_info_less> ComVariantBuilderMap;
-
+            type_info_less
+        > ComVariantBuilderMap;
 
         inline const _variant_t createSafeArray(std::vector<_variant_t>& variants)
         {
@@ -99,12 +99,12 @@ namespace FB {
         //  GJS  ---
         //  I would probably put the ComVariantBuilderMap code into ComVariantUtil.cpp?
         template<class T>
-        ComVariantBuilderMap::value_type makeBuilderEntry()
+        inline ComVariantBuilderMap::value_type makeBuilderEntry()
         {
             return ComVariantBuilderMap::value_type(&typeid(T), select_ccomvariant_builder::select<T>());
         }
 
-        ComVariantBuilderMap makeComVariantBuilderMap()
+        inline const ComVariantBuilderMap makeComVariantBuilderMap()
         {
             ComVariantBuilderMap tdm;
             tdm.insert(makeBuilderEntry<bool>());
@@ -140,14 +140,14 @@ namespace FB {
             return tdm;
         }
 
-        const ComVariantBuilderMap& getComVariantBuilderMap()
+        inline const ComVariantBuilderMap& getComVariantBuilderMap()
         {
             static const ComVariantBuilderMap tdm = makeComVariantBuilderMap();
             return tdm;
         }
         //  GJS  ---
 
-        template<class T> const _variant_t makeArithmeticComVariant(
+        template<class T> inline const _variant_t makeArithmeticComVariant(
             const ActiveXBrowserHostPtr& host, const variant& var)
         {
             return var.convert_cast<T>();
@@ -166,7 +166,7 @@ namespace FB {
             return var.cast<unsigned char>();
         }
 
-        template<class T> const _variant_t makeComVariant(
+        template<class T> inline const _variant_t makeComVariant(
             const ActiveXBrowserHostPtr& host, const variant& var)
         {
             // TODO(jtojanen): could/should this be VT_EMPTY?

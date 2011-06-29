@@ -130,6 +130,7 @@ if (WIN32)
         ${PLUGIN_INTERNAL_DEPS}
         ${ATL_LIBRARY}
         psapi
+        Wininet
         )
     file (GLOB IDL_FILES
         ${FB_TEMPLATE_DEST_DIR}/*.idl)
@@ -157,6 +158,10 @@ if (APPLE)
         ${COCOA_FRAMEWORK}
         ${PLUGIN_INTERNAL_DEPS})
     #endif (FBMAC_USE_COCOA)
+    find_library(SYSCONFIG_FRAMEWORK SystemConfiguration)
+    set (PLUGIN_INTERNAL_DEPS
+        ${SYSCONFIG_FRAMEWORK}
+        ${PLUGIN_INTERNAL_DEPS})
 
     if (FBMAC_USE_COREANIMATION OR FBMAC_USE_COREGRAPHICS OR FBMAC_USE_INVALIDATINGCOREANIMATION)
         find_library(FOUNDATION_FRAMEWORK Foundation)
