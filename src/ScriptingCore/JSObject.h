@@ -164,6 +164,9 @@ namespace FB
     template<class Cont>
     void JSObject::GetArrayValues(const FB::JSObjectPtr& src, Cont& dst)
     {
+        if (!src) {
+            return;
+        }
         try {
             FB::variant tmp = src->GetProperty("length");
             long length = tmp.convert_cast<long>();
@@ -186,6 +189,7 @@ namespace FB
         typedef std::pair<KeyType, MappedType> PairType;
         typedef std::vector<std::string> StringVec;
 
+        if (!src) return;
         try {
             StringVec fields;
             src->getMemberNames(fields);

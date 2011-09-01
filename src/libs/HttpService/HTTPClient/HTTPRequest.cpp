@@ -14,6 +14,7 @@ Copyright 2010 Dan Weatherford and Facebook, Inc
 
 #ifdef _WIN32
 #include "win_targetver.h"
+#include <boost/asio.hpp>
 #include "../Platform/windows_defs.h"
 #endif
 
@@ -23,7 +24,6 @@ Copyright 2010 Dan Weatherford and Facebook, Inc
 #include <cassert>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
-#include <boost/asio.hpp>
 #include <curl/curl.h>
 #include "../HTTPService/BasicService.h"
 #include "../HTTPCommon/Utils.h"
@@ -284,6 +284,10 @@ void HTTPRequest::startRequest_thread() {
 
     curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 1);
     curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 2);
+
+    // THESE ARE REALLY DANGEROUS!!!! DON'T LEAVE THEM ACTIVE!
+    //curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 0);
+    //curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 0);
    
     std::map<std::string, std::string> post_data = request_data->uri.query_data;    
 

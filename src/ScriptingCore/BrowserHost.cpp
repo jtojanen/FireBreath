@@ -20,6 +20,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/construct.hpp>
 #include <boost/format.hpp>
+#include <boost/foreach.hpp>
 #include <boost/smart_ptr/enable_shared_from_this.hpp>
 #include "JSObject.h"
 #include "DOM/Window.h"
@@ -60,6 +61,7 @@ namespace FB {
 
         _asyncCallData* makeCallback(void (*func)(void *), void * userData );
         void call( _asyncCallData* data );
+        void remove( _asyncCallData* data );
 
         std::set<_asyncCallData*> DataList;
         std::set<_asyncCallData*> canceledDataList;
@@ -82,6 +84,10 @@ FB::BrowserHost::~BrowserHost()
 
 void FB::BrowserHost::shutdown()
 {
+    BOOST_FOREACH(FB::JSAPIPtr ptr, m_retainedObjects) {
+        // Notify each JSAPI object that we're shutting down
+        ptr->shutdown();
+    }
     freeRetainedObjects();
     boost::upgrade_lock<boost::shared_mutex> _l(m_xtmutex);
     m_isShutDown = true;
@@ -169,13 +175,19 @@ int FB::BrowserHost::delayedInvoke(const int delayms, const FB::JSObjectPtr& fun
 }
 
 FB::JSObjectPtr FB::BrowserHost::getDelayedInvokeDelegate() {
-    if (getDOMWindow()) {
+    FB::DOM::WindowPtr win(getDOMWindow());
+    if (win) {
         if (call_delegate.empty()) {
             initJS(this);
         }
-        if (!call_delegate.empty()) {
-            return getDOMWindow()->getProperty<FB::JSObjectPtr>(call_delegate);
+        FB::JSObjectPtr delegate(win->getProperty<FB::JSObjectPtr>(call_delegate));
+        if (!delegate) {
+            // Sometimes the first try doesn't work; for some reason retrying generally does,
+            // and from then on it works fine
+            initJS(this);
+            delegate = win->getProperty<FB::JSObjectPtr>(call_delegate);
         }
+        return delegate;
     }
     return FB::JSObjectPtr();
 }
@@ -280,6 +292,12 @@ FB::_asyncCallData* FB::AsyncCallManager::makeCallback(void (*func)(void *), voi
     return data;
 }
 
+void FB::AsyncCallManager::remove(_asyncCallData* data)
+{
+    boost::recursive_mutex::scoped_lock _l(m_mutex);
+    DataList.erase(data);
+}
+
 void FB::AsyncCallManager::shutdown()
 {
     boost::recursive_mutex::scoped_lock _l(m_mutex);
@@ -313,7 +331,11 @@ bool FB::BrowserHost::ScheduleAsyncCall( void (*func)(void *), void *userData ) 
         return false;
     } else {
         _asyncCallData* data = _asyncManager->makeCallback(func, userData);
-        return _scheduleAsyncCall(&asyncCallWrapper, data);
+        bool result = _scheduleAsyncCall(&asyncCallWrapper, data);
+        if (!result) {
+            _asyncManager->remove(data);
+        }
+        return result;
     }
 }
 
